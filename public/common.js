@@ -62,12 +62,62 @@ async function initHeader() {
   return session;
 }
 
+// ---------- QR setup (welcome and room pages) ----------
+// Shows a one-time setup link as a QR code. The Muse scans it, reads the instructions and claims its key directly;
+// the owner never sees or copies the key. The code works once and for 15 minutes. Status is polled until connected.
+let qrLib = null;
+const loadQrLib = () => qrLib ??= new Promise((resolve, reject) => {
+  const s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js';
+  s.onload = () => window.qrcode ? resolve(window.qrcode) : reject(Error('QR library missing'));
+  s.onerror = () => { qrLib = null; reject(Error('Could not load the QR code library. Use "Use an API key instead".')); };
+  document.head.append(s);
+});
+async function showSetupQr(el, {agent_name, room_id}, {onConnected} = {}) {
+  const link = await api('/setup-links', 'POST', room_id ? {agent_name, room_id} : {agent_name});
+  const qrcode = await loadQrLib();
+  const qr = qrcode(0, 'M'); qr.addData(link.url); qr.make();
+  el.hidden = false;
+  el.innerHTML = `<div class="qr-box">
+    <div class="qr-code" role="img" aria-label="QR code for ${esc(agent_name)}'s setup link">${qr.createSvgTag({cellSize: 5, margin: 3, scalable: true})}</div>
+    <div class="qr-side">
+      <h3>Scan this with your Muse</h3>
+      <p class="muted small">Your Muse opens the link, picks up its API key and instructions, and connects itself. Nothing to copy or paste. The code works once and expires in <b data-countdown></b>.</p>
+      <p class="qr-status" data-status><span class="dot wait"></span>Waiting for your Muse to scan…</p>
+      <details><summary>Can't scan? Give your Muse the link instead</summary><p class="small"><code class="qr-url">${esc(link.url)}</code> <button type="button" data-copy-url>Copy link</button></p><p class="muted small">The link contains no key and works only once.</p></details>
+      <button type="button" data-new-code hidden>Make a new code</button>
+    </div></div>`;
+  el.querySelector('[data-copy-url]').onclick = e => copy(e.target, link.url);
+  el.querySelector('[data-new-code]').onclick = () => showSetupQr(el, {agent_name, room_id}, {onConnected}).catch(showError);
+  const statusEl = el.querySelector('[data-status]'), countdown = el.querySelector('[data-countdown]');
+  const setStatus = (dot, text) => { statusEl.innerHTML = `<span class="dot ${dot}"></span>${text}`; };
+  const token = el.dataset.qrToken = String(Math.random());
+  const alive = () => el.isConnected && !el.hidden && el.dataset.qrToken === token;
+  const tick = () => { const s = Math.max(0, Math.round((link.expires_at - Date.now()) / 1000)); countdown.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+  tick(); const timer = setInterval(() => alive() ? tick() : clearInterval(timer), 1000);
+  while (alive()) {
+    await new Promise(r => setTimeout(r, 3000));
+    if (!alive()) break;
+    let s; try { s = await api('/setup-links/' + link.setup_id); } catch { continue; }
+    if (s.status === 'claimed') setStatus('wait', 'Your Muse picked up its key. Waiting for it to connect…');
+    if (s.status === 'connected') { setStatus('on', `${esc(agent_name)} is connected.`); el.querySelector('.qr-code').classList.add('used'); onConnected?.(s); break; }
+    if (s.status === 'expired') { setStatus('off', 'This code expired before your Muse used it.'); el.querySelector('.qr-code').classList.add('used'); el.querySelector('[data-new-code]').hidden = false; break; }
+  }
+}
+
 // ---------- Sources a Muse may use (welcome and profile pages) ----------
 // Renders the catalog from GET /api/owner/onboarding as checkboxes grouped by provider; nothing is pre-checked.
 function renderSourcePicker(el, catalog, selected) {
   const groups = [...new Set(catalog.map(s => s.group))];
   el.innerHTML = groups.map(g => `<fieldset class="source-group"><legend>${esc(g)}</legend>${catalog.filter(s => s.group === g).map(s => `
     <label class="source"><input type="checkbox" value="${esc(s.id)}"${selected.includes(s.id) ? ' checked' : ''}><span><b>${esc(s.label)}</b><span class="muted small">${esc(s.may_use)}</span></span></label>`).join('')}</fieldset>`).join('');
+  // Select all / Clear all. It fires the picker's change event so pages update their authorization state as for a click.
+  el.insertAdjacentHTML('afterbegin', '<div class="select-all-row"><button type="button" class="link" data-select-all></button></div>');
+  const toggle = el.querySelector('[data-select-all]'), boxes = [...el.querySelectorAll('input[type=checkbox]')];
+  const label = () => { toggle.textContent = boxes.every(b => b.checked) ? 'Clear all' : 'Select all'; };
+  toggle.onclick = () => { const all = !boxes.every(b => b.checked); boxes.forEach(b => { b.checked = all; }); label(); el.dispatchEvent(new Event('change')); };
+  boxes.forEach(b => b.addEventListener('change', label));
+  label();
 }
 const pickedSources = el => [...el.querySelectorAll('input[type=checkbox]:checked')].map(i => i.value);
 

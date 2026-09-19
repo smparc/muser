@@ -82,19 +82,39 @@ function renderMuse() {
   $('authorizedSummary').innerHTML = a.length
     ? `<b>Your Muse will be told it may use:</b><ul>${a.map(s => `<li><b>${esc(s.label)}</b> <span class="muted small">${esc(s.may_use)}</span></li>`).join('')}</ul><a href="/profile.html" class="small">Change this later on your Profile page</a>`
     : '<b>You didn’t authorize any apps.</b> <span class="muted small">Your Muse will share only what you tell it. You can add apps later on your Profile page.</span>';
-  if (onboarding.muses) { $('museLater').textContent = 'Skip, I already have a Muse connected'; }
+  // People who already have a Muse just continue; a new key is optional for them.
+  const hasMuse = onboarding.muses > 0;
+  $('museLater').textContent = hasMuse ? 'Continue to my room' : 'Skip for now: go to my room';
+  $('museLater').classList.toggle('primary', hasMuse);
+  $('museQrButton').classList.toggle('primary', !hasMuse);
+  $('museQrButton').textContent = hasMuse ? 'Connect another Muse' : 'Show QR code';
+  $('museName').required = !hasMuse;
 }
 $('museForm').onsubmit = e => {
   e.preventDefault();
+  if (!$('museName').value.trim()) return showError(new Error('Give your Muse a name first.'));
   busy($('museButton'), async () => {
     issued = await api('/connections', 'POST', {agent_name: $('museName').value.trim()});
-    $('museForm').hidden = true; $('museIssued').hidden = false;
+    $('museForm').hidden = true; $('museQr').hidden = true; $('museQrActions').hidden = true; $('museIssued').hidden = false;
     $('issuedKey').value = issued.access_token;
     const rows = [['Name', 'Commonroom'], ['Server origin', location.origin], ['Specification', location.origin + '/openapi.json'], ['Authentication', 'HTTP bearer token'], ['MCP (if required)', location.origin + '/mcp']];
     $('setupTable').innerHTML = rows.map(([k, v]) => `<tr><th>${k}</th><td><code>${esc(v)}</code></td></tr>`).join('');
     $('setupMessage').value = setupMessageFor(issued, onboarding.authorized);
   });
 };
+$('museLater').onclick = () => { location.href = '/connect.html'; };
+// QR (default): the Muse scans and connects itself. The key flow below stays as a fallback.
+$('museQrButton').onclick = () => {
+  if (!$('museName').value.trim()) return showError(new Error('Give your Muse a name first.'));
+  busy($('museQrButton'), async () => {
+    $('museForm').hidden = true; $('museQrActions').hidden = false;
+    try { await showSetupQr($('museQr'), {agent_name: $('museName').value.trim()}); }
+    catch (err) { $('museForm').hidden = false; $('museQrActions').hidden = true; $('museQr').hidden = true; throw err; }
+  });
+};
+const useKeyInstead = () => { $('museQr').hidden = true; $('museQrActions').hidden = true; $('museForm').hidden = false; $('museForm').requestSubmit(); };
+$('museKeyButton').onclick = useKeyInstead;
+$('museQrKey').onclick = useKeyInstead;
 $('toggleKey').onclick = () => { const k = $('issuedKey'); k.type = k.type === 'password' ? 'text' : 'password'; $('toggleKey').textContent = k.type === 'password' ? 'Show' : 'Hide'; };
 $('copyKey').onclick = () => copy($('copyKey'), $('issuedKey').value);
 $('copySetup').onclick = () => copy($('copySetup'), $('setupMessage').value);

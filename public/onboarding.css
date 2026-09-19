@@ -11,6 +11,8 @@
 .wizard-actions>:last-child{margin-left:auto}
 
 .source-picker{display:grid;gap:12px;margin:16px 0}
+.select-all-row{display:flex;justify-content:flex-end;margin-bottom:-6px}
+.select-all-row button{font-size:13px}
 .source-group{border:1px solid var(--line);border-radius:10px;padding:6px 12px 10px;margin:0}
 .source-group legend{font-size:12px;font-weight:700;color:var(--muted);padding:0 4px;text-transform:uppercase;letter-spacing:.4px}
 label.source{display:flex;gap:10px;align-items:flex-start;margin:8px 0 0;font-weight:500;color:var(--text);cursor:pointer}

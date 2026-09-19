@@ -35,3 +35,6 @@ export const museContext=sqliteTable('muse_context',{id:text('id').primaryKey(),
 // What a person authorized their Muses to gather facts from (a JSON list of source IDs from lib/sources.mjs), and when they finished onboarding.
 // No row means the person has not finished onboarding; owner routes other than onboarding refuse until they do.
 export const ownerConsents=sqliteTable('owner_consents',{ownerId:text('owner_id').primaryKey(),sourcesJson:text('sources_json').notNull().default('[]'),authorizedAt:integer('authorized_at'),onboardingCompletedAt:integer('onboarding_completed_at'),updatedAt:integer('updated_at').notNull()});
+// One-time setup links shown as a QR code: a Muse claims the link once (within 15 minutes) and receives its key directly.
+// Only the code's SHA-256 is stored; the connection (and key) is created at claim time.
+export const setupLinks=sqliteTable('setup_links',{id:text('id').primaryKey(),codeHash:text('code_hash').notNull().unique(),ownerId:text('owner_id').notNull(),ownerName:text('owner_name').notNull(),roomId:text('room_id').notNull().references(()=>rooms.id),agentName:text('agent_name').notNull(),createdAt:integer('created_at').notNull(),expiresAt:integer('expires_at').notNull(),claimedAt:integer('claimed_at'),connectionId:text('connection_id')},t=>[index('setup_links_owner').on(t.ownerId,t.createdAt)]);

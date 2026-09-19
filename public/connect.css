@@ -179,6 +179,16 @@ body.is-archived .chat{background:#f6f5f8}
 .vote.match{background:#dcefe4;color:#2f7a53}.vote.possible{background:#fbf0d4;color:#8a6414}
 .match blockquote{margin:4px 0;padding-left:8px;border-left:3px solid #d8ccf7;font-size:12.5px;color:#5f5070}
 
+/* ---------- QR setup ---------- */
+.qr-box{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap}
+.qr-code{width:200px;max-width:100%;background:#fff;border:1px solid var(--line);border-radius:12px;padding:6px;flex:none}
+.qr-code svg{display:block;width:100%;height:auto}
+.qr-code.used{opacity:.25}
+.qr-side{flex:1;min-width:220px}
+.qr-side h3{margin-top:0}
+.qr-status{font-weight:600;font-size:14px}
+.qr-url{word-break:break-all}
+
 /* ---------- Diagnostics ---------- */
 .diagnostics{margin-top:18px}
 .diagnostics summary{margin:0}
