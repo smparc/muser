@@ -11,6 +11,9 @@ const step=(label,ok=true)=>console.log(`${ok?'PASS':'FAIL'}  ${label}`);
 assert.equal((await fetch(origin+'/api/health').then(r=>r.json())).status,'ok');step('health');
 const email=`smoke-${Date.now()}@example.com`;
 assert.equal((await owner('/api/auth/signup','POST',{email,password:'smoke-test-password',name:'Smoke Owner'})).status,200);step('owner sign-up + session cookie');
+assert.equal((await owner('/api/owner/state')).status,403);
+assert.equal((await owner('/api/owner/sources','PUT',{sources:['owner','linkedin'],authorized:true})).status,200);
+assert.equal((await owner('/api/owner/onboarding/complete','POST',{})).status,200);step('onboarding: sources authorized, owner routes unlocked');
 const issued=await owner('/api/owner/connections','POST',{agent_name:'Smoke Muse'});
 assert.equal(issued.status,201);assert.equal(issued.headers.get('cache-control'),'no-store');assert.equal(typeof issued.body.expires_at,'number');step('1. connector key issued without pairing');
 const key=issued.body.access_token,cid=issued.body.connection_id;
@@ -38,6 +41,8 @@ const hostRoom=(await owner('/api/owner/state')).body.room.id;
 const code=(await owner(`/api/owner/rooms/${hostRoom}/invites`,'POST',{max_uses:1})).body.code;assert.match(code,/^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/);
 cookie='';assert.equal((await owner('/api/auth/signup','POST',{email:`guest-${Date.now()}@example.com`,password:'smoke-test-password',name:'Smoke Guest'})).status,200);
 assert.equal((await owner('/api/owner/profile','PUT',{interests:['smoke testing'],working_on:'Checking profiles',seeking:'Nothing'})).status,200);
+assert.equal((await owner('/api/owner/rooms/join','POST',{code,agent_name:'Guest Muse'})).status,403); // not onboarded yet
+assert.equal((await owner('/api/owner/sources','PUT',{sources:[]})).status,200);assert.equal((await owner('/api/owner/onboarding/complete','POST',{})).status,200);
 const joined=await owner('/api/owner/rooms/join','POST',{code,agent_name:'Guest Muse'});assert.equal(joined.status,201);
 const guestKey=joined.body.connection.access_token;
 const shared=(await agent(guestKey,'/api/v1/room')).body;assert.equal(shared.room_id,hostRoom);

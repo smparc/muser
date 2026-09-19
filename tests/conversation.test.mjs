@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {handle} from '../lib/api.mjs';
-import {sqliteD1,origin} from './helpers.mjs';
+import {onboard,sqliteD1,origin} from './helpers.mjs';
 
 test('two Muses alternate replies in one room and stop at the turn limit',async()=>{
- const h=sqliteD1(),owner={id:'conversation-owner',name:'Host'};
+ const h=sqliteD1(),owner={id:'conversation-owner',name:'Host'};onboard(h.sql,[owner]);
  const observed=[];
  async function call(path,method='GET',data,token,asOwner=owner){
   const headers=new Headers();if(data!==undefined)headers.set('Content-Type','application/json');

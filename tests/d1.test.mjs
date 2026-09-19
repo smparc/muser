@@ -3,6 +3,7 @@ const require=createRequire(import.meta.url);const wr=createRequire(require.reso
 const mf=new Miniflare({modules:true,script:'export default {fetch(){return new Response("ok")}}',compatibilityDate:'2026-05-15',d1Databases:['DB'],cf:false});
 try{const db=await mf.getD1Database('DB');for(const migration of migrations())await db.batch(migration.split('--> statement-breakpoint').filter(s=>s.trim()).map(s=>db.prepare(s)));
 const origin='https://commonroom.test',owner={id:'d1-test-owner',name:'Test Owner'};
+await db.prepare('INSERT INTO owner_consents (owner_id,sources_json,authorized_at,onboarding_completed_at,updated_at) VALUES (?,?,?,?,?)').bind(owner.id,'[]',1,1,1).run();
 const call=async(path,method='GET',body,token,asOwner=false)=>{const headers={'Content-Type':'application/json',Origin:origin};if(token)headers.Authorization='Bearer '+token;const r=await handle(new Request(origin+path,{method,headers,body:body===undefined?undefined:JSON.stringify(body)}),db,asOwner?owner:null);return {status:r.status,body:await r.json()};};
 
 // Optional pairing flow still works.
@@ -29,6 +30,7 @@ const replaced=(await call('/api/owner/connections/'+conn.id+'/token','POST',{},
 // Room invite: a single-use code admits exactly one of two concurrent joiners (changes() inside a D1 batch).
 const call2=async(path,method,body,who)=>{const r=await handle(new Request(origin+path,{method,headers:{'Content-Type':'application/json',Origin:origin},body:JSON.stringify(body)}),db,who);return {status:r.status,body:await r.json()};};
 const inv2=(await call2('/api/owner/rooms/'+s.room_id+'/invites','POST',{max_uses:1},owner)).body;
+for(const j of ['j1','j2'])await db.prepare('INSERT INTO owner_consents (owner_id,sources_json,authorized_at,onboarding_completed_at,updated_at) VALUES (?,?,?,?,?)').bind(j,'[]',1,1,1).run();
 const joins=await Promise.all([call2('/api/owner/rooms/join','POST',{code:inv2.code},{id:'j1',name:'J1'}),call2('/api/owner/rooms/join','POST',{code:inv2.code},{id:'j2',name:'J2'})]);
 assert.deepEqual(joins.map(r=>r.status).sort(),[201,409]);
 console.log('PASS: local D1 with all migrations; optional pairing (concurrent one-time redemption); owner-issued connector key; single first-request event under concurrency; inbox checks; concurrent reply idempotency; MCP room read; key replacement; revocation; single-use room invite under concurrent joins. No Muse client was used.');

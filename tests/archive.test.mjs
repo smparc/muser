@@ -1,7 +1,8 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {handle} from '../lib/api.mjs';import {sqliteD1,origin} from './helpers.mjs';
+import {handle} from '../lib/api.mjs';import {onboard,sqliteD1,origin} from './helpers.mjs';
 const h=sqliteD1();
 const host={id:'arch-host',name:'Hana'},member={id:'arch-member',name:'Milo'};
+onboard(h.sql,[host,member]);
 async function call(path,method='GET',body,who,token){const headers=new Headers({Origin:origin});if(body!==undefined)headers.set('Content-Type','application/json');if(token)headers.set('Authorization','Bearer '+token);const r=await handle(new Request(origin+path,{method,headers,body:body===undefined?undefined:JSON.stringify(body)}),h.db,who??null);return {status:r.status,body:await r.json()};}
 let room,hostKey,memberKey,memberCid;
 
@@ -52,7 +53,7 @@ test('deleting requires the host and the exact name, and removes everything',asy
 });
 
 test('deleting your only room gives you a fresh empty home room',async()=>{
- const solo={id:'arch-solo',name:'Sol'};
+ const solo={id:'arch-solo',name:'Sol'};onboard(h.sql,[solo]);
  const home=(await call('/api/owner/state','GET',undefined,solo)).body.room;
  assert.equal((await call('/api/owner/rooms/'+home.id,'DELETE',{confirm_name:home.name},solo)).status,200);
  const next=(await call('/api/owner/state','GET',undefined,solo)).body.room;

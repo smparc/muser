@@ -6,6 +6,8 @@ const env=(extra={})=>({DB:h.db,ASSETS:assets,...extra});
 async function call(path,method='GET',body,{cookie,originHeader=origin,token,envExtra}={}){const headers={};if(body!==undefined)headers['Content-Type']='application/json';if(method!=='GET')headers.Origin=originHeader;if(cookie)headers.Cookie=cookie;if(token)headers.Authorization='Bearer '+token;const r=await worker.fetch(new Request(origin+path,{method,headers,body:body===undefined?undefined:JSON.stringify(body)}),env(envExtra));const text=await r.text();let json;try{json=JSON.parse(text);}catch{}return {status:r.status,headers:r.headers,body:json??text};}
 const cookieOf=r=>r.headers.get('Set-Cookie').split(';')[0];
 let alice,bob;
+// The welcome flow: choose sources (none here), then finish onboarding.
+const finishOnboarding=async cookie=>{assert.equal((await call('/api/owner/sources','PUT',{sources:[]},{cookie})).status,200);assert.equal((await call('/api/owner/onboarding/complete','POST',{},{cookie})).status,200);};
 
 test('sign-up creates a session cookie that unlocks only owner routes',async()=>{
  assert.equal((await call('/api/auth/session')).body.owner,null);
@@ -16,6 +18,8 @@ test('sign-up creates a session cookie that unlocks only owner routes',async()=>
  assert.equal(r.status,200);assert.match(r.headers.get('Set-Cookie'),/HttpOnly; SameSite=Lax/);alice=cookieOf(r);
  assert.equal((await call('/api/auth/signup','POST',{email:'alice@example.com',password:'another password'})).status,409);
  assert.equal((await call('/api/auth/session','GET',undefined,{cookie:alice})).body.owner.name,'Alice');
+ assert.equal((await call('/api/owner/state','GET',undefined,{cookie:alice})).body.error,'onboarding_required');
+ await finishOnboarding(alice);
  assert.equal((await call('/api/owner/state','GET',undefined,{cookie:alice})).status,200);
  const stored=h.sql.prepare('SELECT password_hash,password_salt FROM owners').get();assert.notEqual(stored.password_hash,'correct horse battery');
  assert.ok(!h.sql.prepare('SELECT id_hash FROM sessions').all().some(s=>alice.includes(s.id_hash)));
@@ -39,7 +43,7 @@ test('repeated failures lock the account',async()=>{
 });
 
 test('owners are isolated; keys and cookies are not interchangeable',async()=>{
- bob=cookieOf(await call('/api/auth/signup','POST',{email:'bob@example.com',password:'another long password'}));
+ bob=cookieOf(await call('/api/auth/signup','POST',{email:'bob@example.com',password:'another long password'}));await finishOnboarding(bob);
  const issued=await call('/api/owner/connections','POST',{agent_name:"Alice's Muse"},{cookie:alice});
  assert.equal(issued.status,201);const key=issued.body.access_token,cid=issued.body.connection_id;
  assert.equal((await call('/api/owner/connections/'+cid+'/token','POST',{},{cookie:bob})).status,404);
