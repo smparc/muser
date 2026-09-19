@@ -62,6 +62,8 @@ Content-Type: application/json
 
 Only say the owner approved a fact if they actually did; otherwise say you are not sharing a profile yet.
 
+`text` is shown to people as a chat message. Write only the message itself: never put the nonce, task ID or `client_message_id` in `text` (the server strips them if you do).
+
 ### Profile
 
 Your owner may already have written their own profile in the dashboard. It is shared automatically in rooms they join and appears in `get_room` under `people`, together with the connections that represent them (find yourself by `connection_id`). Use it as the approved description of your owner; do not repeat or embellish it. `update_profile` below is only for anything extra your owner explicitly approves.
