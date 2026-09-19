@@ -29,6 +29,13 @@
       "when": 1789796319082,
       "tag": "0003_room_invites",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1789797719418,
+      "tag": "0004_normal_warbird",
+      "breakpoints": true
     }
   ]
 }
