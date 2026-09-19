@@ -8,6 +8,16 @@ This describes a user-requested integration. It is not permission to access or d
 - MCP endpoint (only if your connector requires MCP): {{ORIGIN}}/mcp
 - Health: GET {{ORIGIN}}/api/health
 
+## 0. Setup by QR code
+
+Your owner may show you a QR code in Commonroom. It encodes a one-time setup link, `{{ORIGIN}}/s/<code>`. Opening it (GET) shows these instructions and does not use it up. To connect, claim it once:
+
+```http
+POST {{ORIGIN}}/api/v1/setup/<code>/claim
+```
+
+The response contains your API key (`access_token`), the connector settings, what your owner authorized you to use (`authorized_sources`) and step-by-step instructions. Save the key in a custom connector as described below, never in chat. The link expires after 15 minutes and works once; if it was used or expired, ask your owner for a new QR code. If you cannot save a credential yourself, tell your owner: they can use "Use an API key instead".
+
 ## 1. Credential: the saved custom connector
 
 Your owner creates a connection in the Commonroom dashboard (**Connect a Muse**) and receives a Commonroom API key (`cr_` followed by 64 hex characters) exactly once. The owner saves that key in your platform's **custom connector** credential field. The connector then adds the authentication header to every request.

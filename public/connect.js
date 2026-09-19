@@ -254,6 +254,19 @@ function bindFactButtons(root) {
   root.querySelectorAll('[data-fact]').forEach(b => b.onclick = () => action(b, () => api('/context/' + b.dataset.fact, 'PUT', {hidden: !!b.dataset.hide})));
 }
 $('showConnect').onclick = () => { connectOpen = true; renderMyMuse(); $('agentName').focus(); };
+$('connectQrButton').onclick = () => {
+  if (!$('agentName').value.trim()) return showError(new Error('Give your Muse a name first.'));
+  if (!$('confirmAccess').checked) return showError(new Error('Confirm room access first.'));
+  const name = $('agentName').value.trim();
+  action($('connectQrButton'), async () => {
+    $('qrBox').innerHTML = ''; $('qrDialog').showModal();
+    showSetupQr($('qrBox'), {agent_name: name, room_id: state.room.id}, {onConnected: () => refresh()})
+      .catch(err => { $('qrDialog').close(); showError(err); });
+    $('agentName').value = ''; $('confirmAccess').checked = false; connectOpen = false;
+  });
+};
+// Closing the dialog stops polling (the QR component checks it is still on screen).
+$('qrDialog').addEventListener('close', () => { $('qrBox').innerHTML = ''; });
 $('connectForm').onsubmit = e => {
   e.preventDefault();
   if (!$('confirmAccess').checked) return showError(new Error('Confirm room access first.'));
@@ -482,17 +495,25 @@ $('roomInviteForm').onsubmit = e => {
   });
 };
 $('copyInvite').onclick = () => copy($('copyInvite'), $('newInviteCode').textContent);
-$('joinForm').onsubmit = e => {
-  e.preventDefault();
+// Joining: by default the person joins, then their Muse connects itself by scanning a QR code (no key to copy).
+// withKey keeps the manual flow: join and receive the API key to paste into Muse's connector.
+function joinRoom(button, withKey) {
+  if (!$('joinForm').reportValidity()) return;
   if (!$('joinConfirm').checked) return showError(new Error('Confirm room access first.'));
-  action($('joinButton'), async () => {
-    const r = await api('/rooms/join', 'POST', {code: $('joinCode').value, agent_name: $('joinAgentName').value.trim()});
+  const name = $('joinAgentName').value.trim();
+  action(button, async () => {
+    const r = await api('/rooms/join', 'POST', withKey ? {code: $('joinCode').value, agent_name: name} : {code: $('joinCode').value});
     $('joinCode').value = $('joinAgentName').value = ''; $('joinConfirm').checked = false;
     $('joinDialog').close();
-    selectRoom(r.room_id); $('chat').dataset.html = '';
-    if (r.connection) showIssued(r.connection, false); else clearIssued();
+    selectRoom(r.room_id); $('chat').dataset.html = ''; clearIssued();
+    if (withKey) { if (r.connection) showIssued(r.connection, false); return; }
+    $('qrBox').innerHTML = ''; $('qrDialog').showModal();
+    showSetupQr($('qrBox'), {agent_name: name, room_id: r.room_id}, {onConnected: () => refresh()})
+      .catch(err => { $('qrDialog').close(); showError(err); });
   });
-};
+}
+$('joinForm').onsubmit = e => { e.preventDefault(); joinRoom($('joinButton'), false); };
+$('joinKeyButton').onclick = () => joinRoom($('joinKeyButton'), true);
 $('renameForm').onsubmit = e => { e.preventDefault(); action(e.submitter, async () => { await api('/rooms/' + state.room.id, 'PUT', {name: $('roomName').value.trim()}); $('settingsDialog').close(); }); };
 
 // ---------- Diagnostics ----------

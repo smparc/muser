@@ -10,7 +10,7 @@
     "directory": "../public",
     "binding": "ASSETS",
     // Dynamic routes must reach the Worker before static files (openapi.json and agent-guide.md get the live origin).
-    "run_worker_first": ["/api/*", "/mcp", "/mcp/", "/openapi.json", "/agent-guide.md", "/"]
+    "run_worker_first": ["/api/*", "/mcp", "/mcp/", "/openapi.json", "/agent-guide.md", "/s/*", "/"]
   },
   "d1_databases": [
     {

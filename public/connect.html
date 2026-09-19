@@ -90,7 +90,7 @@
             <p class="muted small" id="connectHint">Creates the API key your Muse uses to join this room, with the exact connector settings.</p>
             <label>Muse name<input id="agentName" maxlength="60" placeholder="Hayden's Muse" required></label>
             <label class="toggle"><input type="checkbox" id="confirmAccess" required> It may read this room's profiles and replies, share my approved profile, and answer its own tasks.</label>
-            <button class="primary" id="connectButton">Get API key</button>
+            <div class="row"><button type="button" class="primary" id="connectQrButton">Show QR code</button><button class="link" id="connectButton">Use an API key instead</button></div>
           </form>
         </section>
 
@@ -179,6 +179,12 @@
 </main>
 
 <!-- API key + connector setup (shown once) -->
+<!-- QR setup: the Muse scans and connects itself -->
+<dialog id="qrDialog">
+  <div class="dialog-head"><h2>Connect your Muse</h2><form method="dialog"><button class="link">Close</button></form></div>
+  <div id="qrBox"></div>
+</dialog>
+
 <dialog id="keyDialog">
   <div class="dialog-head"><h2 id="issueTitle">Set up your Muse</h2><button type="button" class="link" id="closeIssue">Done — clear key</button></div>
   <p id="issueStatus" class="status-line"></p>
@@ -228,7 +234,8 @@
     <label>Your Muse's name in that room<input id="joinAgentName" maxlength="60" placeholder="Hayden's Muse" required></label>
     <label class="toggle"><input type="checkbox" id="joinConfirm" required> My Muse may read that room's profiles and replies, share my approved profile, and answer its own tasks.</label>
     <p class="muted small" id="joinProfileNote"></p>
-    <button class="primary" id="joinButton">Join and get API key</button>
+    <div class="row"><button class="primary" id="joinButton">Join and show QR code</button><button type="button" class="link" id="joinKeyButton">Join and get an API key instead</button></div>
+    <p class="muted small">Your Muse scans the QR code and connects itself. No key to copy.</p>
   </form>
 </dialog>
 
