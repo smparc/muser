@@ -102,3 +102,27 @@ test('removing a member revokes their agents; members can leave; host cannot',as
  assert.equal((await state(host)).members.length,1);
  h.cleanup();
 });
+
+test('owners can create extra rooms they host, each fully separate',async()=>{
+ const h2=sqliteD1();const owner={id:'multi-host',name:'Maya'},friend={id:'multi-friend',name:'Fred'};
+ const call=async(path,method='GET',body,who)=>{const headers=new Headers({Origin:origin});if(body!==undefined)headers.set('Content-Type','application/json');const r=await handle(new Request(origin+path,{method,headers,body:body===undefined?undefined:JSON.stringify(body)}),h2.db,who);return {status:r.status,body:await r.json()};};
+ const home=(await call('/api/owner/state','GET',undefined,owner)).body.room.id;
+ assert.equal((await call('/api/owner/rooms','POST',{name:''},owner)).status,422);
+ assert.equal((await call('/api/owner/rooms','POST',{name:'x',owner_id:'someone'},owner)).status,422);
+ assert.equal((await call('/api/owner/rooms','POST',{name:'x'})).status,401);
+ const r=await call('/api/owner/rooms','POST',{name:'Climbing crew'},owner);
+ assert.equal(r.status,201);assert.equal(r.body.role,'host');assert.notEqual(r.body.room_id,home);
+ const s=(await call('/api/owner/state?room='+r.body.room_id,'GET',undefined,owner)).body;
+ assert.equal(s.room.name,'Climbing crew');assert.equal(s.room.role,'host');assert.equal(s.members.length,1);
+ assert.deepEqual(s.rooms.map(x=>x.name).sort(),["Climbing crew","Maya's room"]);
+ // The default (home) room is unchanged, and other owners cannot see the new room.
+ assert.equal((await call('/api/owner/state','GET',undefined,owner)).body.room.id,home);
+ assert.equal((await call('/api/owner/state?room='+r.body.room_id,'GET',undefined,friend)).status,404);
+ // Host powers work in the new room: invite, join, connect.
+ const code=(await call('/api/owner/rooms/'+r.body.room_id+'/invites','POST',{},owner)).body.code;
+ const j=await call('/api/owner/rooms/join','POST',{code,agent_name:"Fred's Muse"},friend);
+ assert.equal(j.body.room_id,r.body.room_id);assert.equal(j.body.connection.room_id,r.body.room_id);
+ for(let i=2;i<10;i++)assert.equal((await call('/api/owner/rooms','POST',{name:'Room '+i},owner)).status,201);
+ assert.equal((await call('/api/owner/rooms','POST',{name:'One too many'},owner)).status,429);
+ h2.cleanup();
+});

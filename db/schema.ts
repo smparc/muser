@@ -1,6 +1,6 @@
 import {sqliteTable,text,integer,index,uniqueIndex} from 'drizzle-orm/sqlite-core';
-// Each owner hosts one room (owner_id). Other owners join through room_invites and appear in room_members.
-export const rooms=sqliteTable('rooms',{id:text('id').primaryKey(),ownerId:text('owner_id').notNull().unique(),createdAt:integer('created_at').notNull(),name:text('name')});
+// owner_id is the host. An owner's first room is their home room; they can create more. Others join through room_invites.
+export const rooms=sqliteTable('rooms',{id:text('id').primaryKey(),ownerId:text('owner_id').notNull(),createdAt:integer('created_at').notNull(),name:text('name')},t=>[index('rooms_owner').on(t.ownerId,t.createdAt)]);
 // profile_shared: the member's owner profile is visible in this room (on by default when joining; per-room opt-out).
 export const roomMembers=sqliteTable('room_members',{id:text('id').primaryKey(),roomId:text('room_id').notNull().references(()=>rooms.id),ownerId:text('owner_id').notNull(),ownerName:text('owner_name').notNull(),role:text('role').notNull(),joinedAt:integer('joined_at').notNull(),profileShared:integer('profile_shared').notNull().default(1)},t=>[uniqueIndex('room_members_room_owner').on(t.roomId,t.ownerId),index('room_members_owner').on(t.ownerId)]);
 // Only the SHA-256 of an invite code is stored; the code is shown to the host once.

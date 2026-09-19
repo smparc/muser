@@ -337,6 +337,15 @@ function renderInvites() {
 }
 $('openInvite').onclick = () => { $('newInvite').hidden = true; $('inviteDialog').showModal(); };
 $('openJoin').onclick = () => $('joinDialog').showModal();
+$('openCreate').onclick = () => { $('createName').value = ''; $('createDialog').showModal(); $('createName').focus(); };
+$('createForm').onsubmit = e => {
+  e.preventDefault();
+  action($('createButton'), async () => {
+    const r = await api('/rooms', 'POST', {name: $('createName').value.trim()});
+    $('createDialog').close();
+    selectRoom(r.room_id); clearIssued(); $('chat').dataset.html = '';
+  });
+};
 $('openSettings').onclick = () => { $('roomName').value = state.room.name; $('settingsDialog').showModal(); };
 $('roomInviteForm').onsubmit = e => {
   e.preventDefault();

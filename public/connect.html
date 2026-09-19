@@ -14,6 +14,7 @@
   <div class="room-switch" id="roomSwitch" hidden>
     <select id="roomPicker" aria-label="Switch room"></select>
     <button type="button" id="openJoin" class="ghost">+ Join a room</button>
+    <button type="button" id="openCreate" class="ghost">+ Create a room</button>
   </div>
   <nav>
     <a href="/connect.html" class="active">Room</a>
@@ -208,6 +209,16 @@
     <label class="toggle"><input type="checkbox" id="joinConfirm" required> My Muse may read that room's profiles and replies, share my approved profile, and answer its own tasks.</label>
     <p class="muted small" id="joinProfileNote"></p>
     <button class="primary" id="joinButton">Join and get API key</button>
+  </form>
+</dialog>
+
+<!-- Create a room -->
+<dialog id="createDialog">
+  <div class="dialog-head"><h2>Create a room</h2><form method="dialog"><button class="link">Close</button></form></div>
+  <p class="muted small">You'll host it: invite people with a code, connect Muses and ask the room questions. Your profile is shared there by default.</p>
+  <form id="createForm">
+    <label>Room name<input id="createName" maxlength="80" placeholder="Climbing crew" required></label>
+    <button class="primary" id="createButton">Create room</button>
   </form>
 </dialog>
 
