@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Commonroom · 3D room</title>
+<link rel="icon" href="/favicon.svg">
+<style>
+  :root{font-family:Inter,ui-sans-serif,system-ui,sans-serif;color:#302941}
+  body{margin:0;overflow:hidden;background:#efe8dc}
+  #scene{position:fixed;inset:0}
+  #bar{position:fixed;top:0;left:0;right:0;display:flex;gap:16px;align-items:center;padding:10px 16px;background:rgba(255,255,255,.85);border-bottom:1px solid #e3dccf;z-index:3;font-size:14px;flex-wrap:wrap}
+  #bar a{color:#7250be}
+  #bar .brand{font-weight:750;color:#473374;text-decoration:none;font-size:18px}
+  #note{color:#8c7b99;font-size:12px}
+  #labels{position:fixed;inset:0;pointer-events:none;z-index:2}
+  .label{position:absolute;transform:translate(-50%,-100%);text-align:center;white-space:nowrap}
+  .name{font-size:12px;font-weight:700;background:rgba(255,255,255,.9);padding:2px 6px;border-radius:6px}
+  .state{font-size:11px;margin-top:3px;padding:2px 6px;border-radius:6px;background:#eee7f6;color:#6b5580;display:inline-block}
+  .state.replying{background:#dcefe4;color:#2f7a53}
+  .state.fetching{background:#fbf0d4;color:#8a6414}
+  .state.waiting{background:#e3eefb;color:#335f93}
+  .state.awaiting{background:#f1eee9;color:#8a8070}
+  .bubble{max-width:220px;white-space:normal;font-size:12px;background:white;border:1px solid #d7e7df;border-radius:10px;padding:6px 8px;margin-bottom:4px;box-shadow:0 2px 6px rgba(0,0,0,.08)}
+  .desk{font-size:12px;background:#473374;color:white;padding:3px 8px;border-radius:6px}
+  #panel{position:fixed;right:12px;top:60px;bottom:12px;width:min(360px,calc(100% - 24px));background:white;border:1px solid #e4dfeb;border-radius:12px;padding:16px;overflow:auto;z-index:4;box-shadow:0 6px 24px rgba(0,0,0,.1)}
+  #panel h2{margin:0 0 6px;font-size:18px}
+  #panel .meta{font-size:12px;color:#8c7b99}
+  #panel .msg{border-top:1px solid #f0ebf5;padding:8px 0;font-size:13px}
+  #panel .q{color:#8c7b99;font-size:12px}
+  #panel button{float:right;border:1px solid #ddd4e9;background:#faf8ff;border-radius:6px;cursor:pointer}
+  #signin{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:5;background:#efe8dc}
+  [hidden]{display:none!important}
+</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js"}}</script>
+</head>
+<body>
+<div id="bar">
+  <a class="brand" href="/connect.html">◎ commonroom</a>
+  <a href="/connect.html">Dashboard</a>
+  <span id="summary"></span>
+  <span id="note">Positions are decorative. States come only from recorded API events (inbox checks, fetched tasks, posted replies) — never from Muse's private reasoning.</span>
+</div>
+<div id="scene"></div>
+<div id="labels"></div>
+<aside id="panel" hidden></aside>
+<div id="signin" hidden><p>Sign in on the <a href="/connect.html">dashboard</a> to view your room.</p></div>
+<script type="module" src="/room3d.js"></script>
+</body>
+</html>
