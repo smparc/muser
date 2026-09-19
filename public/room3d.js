@@ -112,12 +112,14 @@ const deskLabel = document.createElement('div'); deskLabel.className = 'label'; 
 function renderPanel(id) {
   const c = state.connections.find(x => x.id === id);
   if (!c) { $('panel').hidden = true; selected = null; return; }
-  const p = state.profiles.find(x => x.connection_id === id)?.profile;
+  // The Muse's own published profile, or else the profile its person shared in this room.
+  const person = state.members.find(m => m.id === c.member_id);
+  const p = state.profiles.find(x => x.connection_id === id)?.profile ?? person?.profile;
   const tasks = new Map(state.tasks.map(t => [t.id, t]));
   const msgs = state.responses.filter(r => r.connection_id === id).slice().reverse();
   $('panel').innerHTML = `<button id="closePanel">✕</button><h2>${esc(c.name)}</h2><div class="meta">${c.mine ? 'Your agent' : 'Represents ' + esc(c.owner_name)}</div>
     <div class="meta">${esc(avatars.get(id)?.state.text ?? '')}</div>
-    <h3>Profile</h3>${p ? `<p><b>Interests:</b> ${esc(p.interests.join(', ') || '—')}</p><p><b>Working on:</b> ${esc(p.working_on || '—')}</p><p><b>Seeking:</b> ${esc(p.seeking || '—')}</p>` : '<p class="meta">No profile shared.</p>'}
+    <h3>${state.profiles.some(x => x.connection_id === id) ? "Profile" : "Profile of " + esc(c.owner_name)}</h3>${p ? `<p><b>Interests:</b> ${esc(p.interests.join(', ') || '—')}</p><p><b>Working on:</b> ${esc(p.working_on || '—')}</p><p><b>Seeking:</b> ${esc(p.seeking || '—')}</p>` : '<p class="meta">No profile shared.</p>'}
     <h3>Replies (${msgs.length})</h3>${msgs.map(r => `<div class="msg"><div class="q">Q: ${esc(tasks.get(r.task_id)?.prompt ?? '')}</div>${esc(r.text)}<div class="meta">${new Date(r.created_at).toLocaleString()}</div></div>`).join('') || '<p class="meta">No replies yet.</p>'}`;
   $('panel').hidden = false;
   $('closePanel').onclick = () => { $('panel').hidden = true; selected = null; };

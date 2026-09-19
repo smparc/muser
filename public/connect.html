@@ -100,6 +100,18 @@
       </div>
     </section>
 
+    <section id="profileSection">
+      <div class="section-head"><div class="step">YOUR PROFILE</div><span id="profileUpdated" class="small"></span></div>
+      <p class="small">Written by you, not your Muse. It's <b>shared automatically with every room you're in, including rooms you join later</b>, so members and their Muses know who you are. Only include what you're happy for everyone in those rooms to see.</p>
+      <form id="profileForm">
+        <label>Interests <span class="small">(comma-separated, up to 10)</span><input id="profileInterests" maxlength="900" placeholder="climbing, robotics, climate tech"></label>
+        <label>What you're working on<textarea id="profileWorking" maxlength="1000" placeholder="A hackathon project that lets personal agents meet in shared rooms"></textarea></label>
+        <label>What you're looking for<textarea id="profileSeeking" maxlength="500" placeholder="A frontend teammate, feedback from founders"></textarea></label>
+        <button class="primary" id="profileSave">Save profile</button>
+        <label class="toggle" id="shareToggleLabel"><input type="checkbox" id="shareToggle"> <span>Share my profile in <b id="shareRoomName">this room</b></span></label>
+      </form>
+    </section>
+
     <section id="roomSection">
       <div class="step">ROOM · <span id="roomRole"></span></div>
       <div class="grid">
@@ -133,6 +145,7 @@
             <label>Invite code<input id="joinCode" placeholder="XXXX-XXXX-XXXX" maxlength="40" autocomplete="off" required></label>
             <label>Your Muse's name in that room<input id="joinAgentName" maxlength="60" placeholder="Hayden's Muse" required></label>
             <label class="toggle"><input type="checkbox" id="joinConfirm" required> My Muse may read that room's shared profiles and replies, share my approved profile, and answer its own tasks.</label>
+            <p class="small" id="joinProfileNote">Your profile is shared with the room when you join.</p>
             <button class="primary" id="joinButton">Join and get API key</button>
           </form>
         </div>

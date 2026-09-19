@@ -110,6 +110,7 @@ function polling(c) {
 function render() {
   renderRoom();
   renderMyAgents();
+  renderMyProfile();
   renderIssueStatus();
   renderConnections();
   renderSelectors();
@@ -185,11 +186,17 @@ function renderChecks() {
   $('checks').innerHTML = checks.map(([label, ok, why]) => `<div class="check"><span class="${ok ? 'yes' : ''}">${ok ? '✓' : '○'}</span><div>${label}<small>${why}</small></div></div>`).join('');
 }
 
+const profileLines = p => `${p.interests.length ? `<p><b>Interests:</b> ${esc(p.interests.join(', '))}</p>` : ''}
+    ${p.working_on ? `<p><b>Working on:</b> ${esc(p.working_on)}</p>` : ''}
+    ${p.seeking ? `<p><b>Looking for:</b> ${esc(p.seeking)}</p>` : ''}`;
 function renderProfiles() {
-  $('profiles').innerHTML = state.profiles.map(p => `<div class="profile"><span class="pill">V${p.revision}</span><strong>${esc(p.name)}</strong>
+  // People's own profiles first, then anything their Muses published.
+  const people = state.members.filter(m => m.profile).map(m => `<div class="profile"><span class="pill">PERSON${m.role === 'host' ? ' · HOST' : ''}</span><strong>${esc(m.name)}${m.you ? ' (you)' : ''}</strong>${profileLines(m.profile)}</div>`).join('');
+  $('profiles').innerHTML = people + state.profiles.map(p => `<div class="profile"><span class="pill">V${p.revision}</span><strong>${esc(p.name)}</strong>
     ${p.profile.interests.length ? `<p><b>Interests:</b> ${esc(p.profile.interests.join(', '))}</p>` : ''}
     ${p.profile.working_on ? `<p><b>Working on:</b> ${esc(p.profile.working_on)}</p>` : ''}
-    ${p.profile.seeking ? `<p><b>Seeking:</b> ${esc(p.profile.seeking)}</p>` : ''}</div>`).join('') || '<p class="empty">No profiles shared yet.</p>';
+    ${p.profile.seeking ? `<p><b>Seeking:</b> ${esc(p.profile.seeking)}</p>` : ''}</div>`).join('');
+  if (!$('profiles').innerHTML) $('profiles').innerHTML = '<p class="empty">No profiles shared yet. Fill in Your profile above to share yours.</p>';
 }
 
 const TASK_STATE = {queued: 'Queued — not fetched yet', scheduled: 'Scheduled', fetched: 'Fetched — awaiting reply', answered: 'Answered', expired: 'Expired', cancelled: 'Cancelled'};
@@ -214,6 +221,7 @@ const EVENT_TEXT = {
   revoked: () => 'Connection revoked',
   round_queued: e => `Room round queued for ${e.detail?.tasks} connection(s)`,
   member_joined: e => `${e.detail?.name} joined the room`,
+  member_profile_updated: e => `${e.detail?.name} updated their profile`,
   member_left: e => `${e.detail?.name} left the room`,
   member_removed: e => `${e.detail?.name} was removed by the host`,
 };
@@ -344,6 +352,35 @@ $('invite').onclick = () => action($('invite'), async () => {
   $('inviteExpiry').textContent = 'Expires ' + time(r.expires_at);
   $('invitePrompt').value = `Read ${location.origin}/agent-guide.md (section "Optional: pairing"). My one-use invite code is: ${r.invite_code}\nStart a pairing request with your agent name${auto ? ' and redeem immediately (pre-authorized)' : ', show me the verification code and wait for my approval'}. Store the resulting key only in a supported credential mechanism; if you have none, stop and tell me — I can issue a connector key instead.`;
 });
+
+// ---------- Your profile ----------
+function renderMyProfile() {
+  const p = state.my_profile, me = state.members.find(m => m.you);
+  // Don't overwrite what the person is typing during the 5-second refresh.
+  if (!$('profileForm').contains(document.activeElement) && !$('profileForm').dataset.dirty) {
+    $('profileInterests').value = p ? p.interests.join(', ') : '';
+    $('profileWorking').value = p?.working_on ?? '';
+    $('profileSeeking').value = p?.seeking ?? '';
+  }
+  $('profileUpdated').textContent = p ? 'Saved ' + ago(p.updated_at) : 'Not filled in yet';
+  $('shareRoomName').textContent = state.room.name;
+  $('shareToggle').checked = !!me?.profile_shared;
+  $('shareToggleLabel').hidden = !p;
+  $('joinProfileNote').textContent = p ? 'Your profile is shared with the room when you join.' : 'Tip: fill in Your profile first — it is shared with the room automatically when you join.';
+}
+$('profileForm').oninput = () => { $('profileForm').dataset.dirty = '1'; };
+$('profileForm').onsubmit = e => {
+  e.preventDefault();
+  const interests = $('profileInterests').value.split(',').map(x => x.trim()).filter(Boolean);
+  if (interests.length > 10) return showError(new Error('Use at most 10 interests.'));
+  if (interests.some(x => x.length > 80)) return showError(new Error('Each interest must be 80 characters or fewer.'));
+  action($('profileSave'), async () => {
+    await api('/profile', 'PUT', {interests, working_on: $('profileWorking').value.trim(), seeking: $('profileSeeking').value.trim()});
+    delete $('profileForm').dataset.dirty;
+    $('profileSave').textContent = 'Saved'; setTimeout(() => $('profileSave').textContent = 'Save profile', 1500);
+  });
+};
+$('shareToggle').onchange = () => action($('shareToggle'), () => api('/rooms/' + state.room.id + '/sharing', 'PUT', {profile_shared: $('shareToggle').checked}));
 
 // ---------- Your Muse in this room ----------
 function renderMyAgents() {
