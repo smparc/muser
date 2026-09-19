@@ -204,3 +204,35 @@ test('Start conversation: Gemini writes the opening question for the chosen pair
   assert.equal(failed.status,424);assert.match(failed.body.message,/HTTP 503/);
  }finally{h.cleanup();}
 });
+
+test('room rounds and single questions are written by Gemini unless the host writes their own',async()=>{
+ const h=sqliteD1(),host={id:'aq-host',name:'Ada'};onboard(h.sql,[host]);
+ const scopes=[];
+ const gemini=fakeModel('Gemini',{
+  master_question:input=>{scopes.push(input.muses.map(m=>m.muse));return {question:`Written for ${input.muses.length===1?input.muses[0].muse:'the room'}: what would help you most this week?`,rationale:'r'};},
+  master_review:{approve:true,issues:[],revised_question:''}});
+ const runtime=masterRuntime(h.db,{},undefined,{providers:[gemini]});
+ const call=async(path,method='GET',body,token,rt=runtime)=>{const headers=new Headers({Origin:origin});if(body!==undefined)headers.set('Content-Type','application/json');if(token)headers.set('Authorization','Bearer '+token);const r=await handle(new Request(origin+path,{method,headers,body:body===undefined?undefined:JSON.stringify(body)}),h.db,token?null:host,rt);return {status:r.status,body:await r.json()};};
+ try{
+  const a=(await call('/api/owner/connections','POST',{agent_name:'A Muse'})).body;
+  const b=(await call('/api/owner/connections','POST',{agent_name:'B Muse'})).body;
+  // Room round with no prompt: Gemini writes it for the whole room.
+  const round=await call('/api/owner/rounds','POST',{});
+  assert.equal(round.status,201);assert.match(round.body.prompt,/Written for the room/);assert.equal(round.body.question_by,'Gemini gemini-test');
+  assert.deepEqual(scopes.at(-1),['A Muse','B Muse']);
+  // One Muse with no prompt: Gemini writes it for that Muse only.
+  const one=await call('/api/owner/tasks','POST',{connection_id:b.connection_id});
+  assert.equal(one.status,201);assert.match(one.body.prompt,/Written for B Muse/);assert.equal(one.body.question_by,'Gemini gemini-test');
+  assert.deepEqual(scopes.at(-1),['B Muse']);
+  // The host can still write their own; then no model is called.
+  const before=gemini.calls.length;
+  const mine=await call('/api/owner/tasks','POST',{connection_id:a.connection_id,prompt:'My own question?'});
+  assert.equal(mine.body.prompt,'My own question?');assert.equal(mine.body.question_by,'host');assert.equal(gemini.calls.length,before);
+  // With no model configured, the built-in question is used instead of failing.
+  const plain=masterRuntime(h.db,{},undefined,{providers:[]});
+  const fallback=await call('/api/owner/rounds','POST',{},null,plain);
+  assert.equal(fallback.status,201);assert.equal(fallback.body.question_by,'host');assert.match(fallback.body.prompt,/Build on the recent room discussion/);
+  const single=await call('/api/owner/tasks','POST',{connection_id:a.connection_id},null,plain);
+  assert.equal(single.status,201);assert.match(single.body.prompt,/could offer someone in this room/);
+ }finally{h.cleanup();}
+});
