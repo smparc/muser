@@ -64,3 +64,12 @@ test('worker serves live-origin spec and guide, and redirects the root',async()=
  const root=await worker.fetch(new Request(origin+'/'),env());assert.equal(root.status,302);
  h.cleanup();
 });
+
+test('PUBLIC_ORIGIN rewrites the origin seen behind a tunnel',async()=>{
+ const h2=sqliteD1();const pub='https://room.example.com';
+ const e={DB:h2.db,ASSETS:assets,PUBLIC_ORIGIN:pub};
+ const spec=await (await worker.fetch(new Request('http://127.0.0.1:8787/openapi.json'),e)).json();assert.equal(spec.servers[0].url,pub);
+ const r=await worker.fetch(new Request('http://127.0.0.1:8787/api/auth/signup',{method:'POST',headers:{'Content-Type':'application/json',Origin:pub},body:JSON.stringify({email:'t@example.com',password:'correct horse battery'})}),e);
+ assert.equal(r.status,200);assert.match(r.headers.get('Set-Cookie'),/Secure/);
+ h2.cleanup();
+});

@@ -9,6 +9,8 @@ const PUBLIC_HEADERS={'Cache-Control':'no-cache','X-Content-Type-Options':'nosni
 
 export default {
  async fetch(req,env){
+  // Behind a tunnel or proxy the Worker sees an internal URL; PUBLIC_ORIGIN makes the spec, guide and same-origin checks use the public one.
+  if(env.PUBLIC_ORIGIN){const inner=new URL(req.url),pub=new URL(env.PUBLIC_ORIGIN);if(inner.origin!==pub.origin)req=new Request(new URL(inner.pathname+inner.search,pub.origin),req);}
   const url=new URL(req.url),path=url.pathname;
   if(path==='/openapi.json')return Response.json(openapiSpec(url.origin),{headers:PUBLIC_HEADERS});
   if(path==='/agent-guide.md'){
