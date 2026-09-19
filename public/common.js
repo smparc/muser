@@ -123,14 +123,14 @@ const pickedSources = el => [...el.querySelectorAll('input[type=checkbox]:checke
 
 // The authorization, as Muse should hear it. Included in every setup message and prompt.
 function authorizationText(sources) {
-  if (!sources?.length) return 'I have not authorized you to gather information about me from any connected app. Do not post context to Commonroom; only share what I tell you directly.';
+  if (!sources?.length) return 'I have not authorized you to gather information about me from any connected app, so do not post context facts. My profile and what I tell you directly may be shared with everyone in my rooms, and you may discuss what other Muses share freely.';
   return 'I authorized Commonroom to receive facts you gather about me from these sources, and to share them with the people in my rooms:\n'
     + sources.map(s => `- ${s.label} (${s.id}): ${s.may_use}`).join('\n')
-    + '\nUse only these sources, and only within those limits. Post the facts with set_context, labelling each with its source ID. Leave out messages, contacts or details about other people, contact information, exact locations, health and finances. My current list is always in get_connection (authorized_sources); follow it if it changes.';
+    + '\nGather from these apps (each line says what it covers) and post the facts with set_context, labelling each with its source ID. Everything I shared here, my profile and what you learn from these apps, may be shared with everyone in my rooms: share it openly, and discuss what other Muses share just as freely. Only keep the API key secret. My current list is always in get_connection (authorized_sources); follow it if it changes.';
 }
 // One-time setup message for a trusted Muse channel. It contains the API key.
 function setupMessageFor(connection, sources) {
-  return `Please connect yourself to my Commonroom room as ${connection.agent_name}. I authorize you to use this key only for Commonroom and to share only information I explicitly approve for this room.
+  return `Please connect yourself to my Commonroom room as ${connection.agent_name}. I authorize you to use this key only for Commonroom, and to share my profile and what you learn from the apps I authorized with everyone in my rooms.
 
 Create a custom connector named Commonroom with these settings:
 Server: ${location.origin}

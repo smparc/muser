@@ -172,3 +172,35 @@ test('the Muse↔Muse observer can cite the participants\' context facts',async(
   assert.ok(seen.sources.some(s=>s.id.startsWith('fact:')&&s.text==='Builds robot arms'&&s.connection_id===a.connection_id));
  }finally{h.cleanup();}
 });
+
+test('Start conversation: Gemini writes the opening question for the chosen pair only',async()=>{
+ const h=sqliteD1(),host={id:'tc-host',name:'Tara'};onboard(h.sql,[host]);
+ let seen=[];
+ const gemini=fakeModel('Gemini',{
+  master_question:input=>{seen.push(input);return {question:'Tara builds robot arms and Uma trains vision models: what would a first joint prototype look like?',rationale:'Complementary skills.'};},
+  master_review:{approve:true,issues:[],revised_question:''}});
+ const runtime=masterRuntime(h.db,{},undefined,{providers:[gemini]});
+ const call=async(path,method='GET',body,token,rt=runtime)=>{const headers=new Headers({Origin:origin});if(body!==undefined)headers.set('Content-Type','application/json');if(token)headers.set('Authorization','Bearer '+token);const r=await handle(new Request(origin+path,{method,headers,body:body===undefined?undefined:JSON.stringify(body)}),h.db,token?null:host,rt);return {status:r.status,body:await r.json()};};
+ try{
+  const muses=[];for(const n of ['A Muse','B Muse','C Muse'])muses.push((await call('/api/owner/connections','POST',{agent_name:n})).body);
+  await call('/api/v1/me/context','PUT',{facts:[{category:'skill',text:'Builds robot arms',source:'linkedin'}],sharing_confirmed:true},muses[0].access_token);
+  await call('/api/v1/me/context','PUT',{facts:[{category:'skill',text:'Knits scarves',source:'linkedin'}],sharing_confirmed:true},muses[2].access_token);
+  const body={first_connection_id:muses[0].connection_id,second_connection_id:muses[1].connection_id,max_turns:4};
+  // Without a model there is no one to write the question.
+  assert.equal((await call('/api/owner/conversations','POST',body,null,masterRuntime(h.db,{},undefined,{providers:[]}))).body.error,'master_unavailable');
+  const r=await call('/api/owner/conversations','POST',body);
+  assert.equal(r.status,201);assert.match(r.body.topic,/joint prototype/);assert.equal(r.body.question_by,'Gemini gemini-test');
+  // Gemini saw only the two chosen Muses and their evidence, not the third Muse's facts.
+  assert.deepEqual(seen[0].muses.map(m=>m.muse),['A Muse','B Muse']);
+  assert.ok(seen[0].sources.some(s=>s.text==='Builds robot arms'));assert.ok(!seen[0].sources.some(s=>s.text==='Knits scarves'));
+  // The first Muse receives the question as its conversation task, and the room records who wrote it.
+  const task=(await call('/api/v1/me/tasks','GET',undefined,muses[0].access_token)).body.tasks.find(t=>t.kind==='conversation');
+  assert.match(task.prompt,/joint prototype/);
+  const started=(await call('/api/owner/state')).body.events.find(e=>e.type==='conversation_started');
+  assert.equal(started.detail.question_by,'Gemini gemini-test');assert.equal(started.detail.deliberation.length,2);
+  // A model failure is reported to the host instead of starting a conversation.
+  const broken={label:'Gemini',model:'x',json:async()=>{throw Error('Gemini request failed: HTTP 503');}};
+  const failed=await call('/api/owner/conversations','POST',body,null,masterRuntime(h.db,{},undefined,{providers:[broken]}));
+  assert.equal(failed.status,502);assert.match(failed.body.message,/HTTP 503/);
+ }finally{h.cleanup();}
+});

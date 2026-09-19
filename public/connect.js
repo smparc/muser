@@ -359,7 +359,8 @@ function renderControls() {
   $('roundButton').disabled = !everyone.length;
   fillSelect($('dialogueFirst'), everyone); fillSelect($('dialogueSecond'), everyone);
   if ($('dialogueFirst').value === $('dialogueSecond').value && everyone.length > 1) $('dialogueSecond').value = everyone.find(c => c.id !== $('dialogueFirst').value).id;
-  $('dialogueButton').disabled = everyone.length < 2;
+  // Gemini writes the opening question, so a conversation needs the master's model as well as two Muses.
+  $('dialogueButton').disabled = everyone.length < 2 || !state.master?.providers?.length;
   $('masterStatus').textContent = state.master_observer_enabled
     ? 'The AI master observes Muse↔Muse conversations and posts grounded findings in the chat.'
     : 'The AI master observer is offline (no GEMINI_API_KEY on the server). Conversations still work.';
@@ -369,7 +370,11 @@ $('roundForm').onsubmit = e => { e.preventDefault(); action($('roundButton'), ()
 $('dialogueForm').onsubmit = e => {
   e.preventDefault();
   if ($('dialogueFirst').value === $('dialogueSecond').value) return showError(new Error('Choose two different Muses.'));
-  action($('dialogueButton'), () => api('/conversations', 'POST', {room_id: state.room.id, first_connection_id: $('dialogueFirst').value, second_connection_id: $('dialogueSecond').value, topic: $('dialogueTopic').value, max_turns: Number($('dialogueTurns').value)}));
+  // No topic is sent: Gemini writes the opening question (this can take a while), then the Muses converse.
+  const label = $('dialogueButton').textContent;
+  $('dialogueButton').textContent = 'Gemini is writing the question…';
+  action($('dialogueButton'), () => api('/conversations', 'POST', {room_id: state.room.id, first_connection_id: $('dialogueFirst').value, second_connection_id: $('dialogueSecond').value, max_turns: Number($('dialogueTurns').value)}))
+    .finally(() => { $('dialogueButton').textContent = label; });
 };
 
 // ---------- Master ----------
