@@ -4,11 +4,12 @@ import {handle} from '../lib/api.mjs';
 import {handleAuth,ownerFromSession} from '../lib/owner-auth.mjs';
 import {handleMcp} from '../lib/mcp.mjs';
 import {openapiSpec} from '../lib/openapi.mjs';
+import {masterRuntime} from '../lib/master-runtime.mjs';
 
 const PUBLIC_HEADERS={'Cache-Control':'no-cache','X-Content-Type-Options':'nosniff','Access-Control-Allow-Origin':'*'};
 
 export default {
- async fetch(req,env){
+ async fetch(req,env,ctx){
   // Behind a tunnel or proxy the Worker sees an internal URL; PUBLIC_ORIGIN makes the spec, guide and same-origin checks use the public one.
   if(env.PUBLIC_ORIGIN){const inner=new URL(req.url),pub=new URL(env.PUBLIC_ORIGIN);if(inner.origin!==pub.origin)req=new Request(new URL(inner.pathname+inner.search,pub.origin),req);}
   const url=new URL(req.url),path=url.pathname;
@@ -17,11 +18,12 @@ export default {
    const asset=await env.ASSETS.fetch(new Request(new URL('/agent-guide.md',url)));
    return new Response((await asset.text()).replaceAll('{{ORIGIN}}',url.origin),{headers:{...PUBLIC_HEADERS,'Content-Type':'text/markdown; charset=utf-8'}});
   }
-  if(path==='/mcp'||path==='/mcp/')return handleMcp(req,env.DB);
+  const runtime=masterRuntime(env.DB,env,ctx?.waitUntil?work=>ctx.waitUntil(work):undefined);
+  if(path==='/mcp'||path==='/mcp/')return handleMcp(req,env.DB,runtime);
   if(path.startsWith('/api/auth/'))return handleAuth(req,env.DB,env);
   if(path.startsWith('/api/')){
    const owner=path.startsWith('/api/owner')?await ownerFromSession(req,env.DB):null;
-   return handle(req,env.DB,owner);
+   return handle(req,env.DB,owner,runtime);
   }
   if(path==='/')return Response.redirect(new URL('/connect.html',url),302);
   const res=await env.ASSETS.fetch(req);

@@ -1,7 +1,11 @@
 {
   "version": "6",
   "dialect": "sqlite",
+<<<<<<< HEAD
   "id": "68e8a44e-d44b-46a4-9708-2d978e095609",
+=======
+  "id": "8d81b85f-f93f-41c5-af5a-afef14815ade",
+>>>>>>> d1e7b145ceadd29861daf4e9e2eac8f0fec16dca
   "prevId": "a8cf4676-8fc1-41bd-901a-ff712cedde12",
   "tables": {
     "connections": {
@@ -342,33 +346,121 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+<<<<<<< HEAD
     "owner_profiles": {
       "name": "owner_profiles",
       "columns": {
         "owner_id": {
           "name": "owner_id",
+=======
+    "master_observations": {
+      "name": "master_observations",
+      "columns": {
+        "id": {
+          "name": "id",
+>>>>>>> d1e7b145ceadd29861daf4e9e2eac8f0fec16dca
           "type": "text",
           "primaryKey": true,
           "notNull": true,
           "autoincrement": false
         },
+<<<<<<< HEAD
         "profile_json": {
           "name": "profile_json",
+=======
+        "room_id": {
+          "name": "room_id",
+>>>>>>> d1e7b145ceadd29861daf4e9e2eac8f0fec16dca
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
+<<<<<<< HEAD
         "updated_at": {
           "name": "updated_at",
+=======
+        "conversation_id": {
+          "name": "conversation_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "through_turn": {
+          "name": "through_turn",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "result_json": {
+          "name": "result_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+>>>>>>> d1e7b145ceadd29861daf4e9e2eac8f0fec16dca
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         }
       },
+<<<<<<< HEAD
       "indexes": {},
       "foreignKeys": {},
+=======
+      "indexes": {
+        "master_observations_turn": {
+          "name": "master_observations_turn",
+          "columns": [
+            "conversation_id",
+            "through_turn"
+          ],
+          "isUnique": true
+        },
+        "master_observations_room": {
+          "name": "master_observations_room",
+          "columns": [
+            "room_id",
+            "created_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "master_observations_room_id_rooms_id_fk": {
+          "name": "master_observations_room_id_rooms_id_fk",
+          "tableFrom": "master_observations",
+          "tableTo": "rooms",
+          "columnsFrom": [
+            "room_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "master_observations_conversation_id_conversations_id_fk": {
+          "name": "master_observations_conversation_id_conversations_id_fk",
+          "tableFrom": "master_observations",
+          "tableTo": "conversations",
+          "columnsFrom": [
+            "conversation_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+>>>>>>> d1e7b145ceadd29861daf4e9e2eac8f0fec16dca
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
@@ -874,6 +966,7 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+<<<<<<< HEAD
         },
         "profile_shared": {
           "name": "profile_shared",
@@ -882,6 +975,8 @@
           "notNull": true,
           "autoincrement": false,
           "default": 1
+=======
+>>>>>>> d1e7b145ceadd29861daf4e9e2eac8f0fec16dca
         }
       },
       "indexes": {

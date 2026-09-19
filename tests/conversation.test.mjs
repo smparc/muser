@@ -5,11 +5,12 @@ import {sqliteD1,origin} from './helpers.mjs';
 
 test('two Muses alternate replies in one room and stop at the turn limit',async()=>{
  const h=sqliteD1(),owner={id:'conversation-owner',name:'Host'};
+ const observed=[];
  async function call(path,method='GET',data,token,asOwner=owner){
   const headers=new Headers();if(data!==undefined)headers.set('Content-Type','application/json');
   if(path.startsWith('/api/owner/'))headers.set('Origin',origin);
   if(token)headers.set('Authorization','Bearer '+token);
-  const response=await handle(new Request(origin+path,{method,headers,body:data===undefined?undefined:JSON.stringify(data)}),h.db,path.startsWith('/api/owner/')?asOwner:null);
+  const response=await handle(new Request(origin+path,{method,headers,body:data===undefined?undefined:JSON.stringify(data)}),h.db,path.startsWith('/api/owner/')?asOwner:null,{onObserve:(id,turn)=>observed.push([id,turn])});
   return {status:response.status,body:await response.json()};
  }
  try{
@@ -34,5 +35,6 @@ test('two Muses alternate replies in one room and stop at the turn limit',async(
   assert.equal(state.conversations[0].turn_count,4);
   assert.equal(state.conversations[0].status,'completed');
   assert.equal(state.responses.filter(r=>r.text.startsWith('Message ')).length,4);
+  assert.deepEqual(observed.map(x=>x[1]),[2,4]);
  }finally{h.cleanup();}
 });

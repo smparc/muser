@@ -102,9 +102,9 @@ function sync() {
     a.label.innerHTML = `${a.state.reply ? `<div class="bubble">${esc(a.state.reply.text.slice(0, 160))}${a.state.reply.text.length > 160 ? '…' : ''}</div>` : ''}<div class="name">${esc(c.name)}</div><div class="state ${a.state.key}">${esc(a.state.text)}</div>`;
   });
   const queued = state.tasks.filter(t => t.state === 'queued' || t.state === 'scheduled').length;
-  deskLabel.innerHTML = `<div class="desk">Admin desk · ${queued} queued · ${state.tasks.filter(t => t.state === 'fetched').length} fetched · ${state.responses.length} replies</div>`;
+  deskLabel.innerHTML = `<div class="desk">Master desk · ${state.master_observations?.length??0} observations · ${state.responses.length} replies · ${queued} queued</div>`;
   $('summary').textContent = `${state.room.name} · ${state.members.length} member(s) · ${visible.filter(c => c.status === 'connected').length} agent(s) connected`;
-  if (selected) renderPanel(selected);
+  if (selected === 'master') renderMasterPanel(); else if (selected) renderPanel(selected);
 }
 
 const deskLabel = document.createElement('div'); deskLabel.className = 'label'; $('labels').appendChild(deskLabel);
@@ -124,6 +124,19 @@ function renderPanel(id) {
   $('panel').hidden = false;
   $('closePanel').onclick = () => { $('panel').hidden = true; selected = null; };
 }
+
+function renderMasterPanel() {
+  const latest = new Map();
+  for (const o of state.master_observations??[]) if (!latest.has(o.conversation_id)) latest.set(o.conversation_id,o);
+  const cards = (state.conversations??[]).slice(0,5).map(c=>{
+    const o=latest.get(c.id),r=o?.result;
+    const a=state.connections.find(x=>x.id===c.first_id)?.name??'Muse',b=state.connections.find(x=>x.id===c.second_id)?.name??'Muse';
+    return `<div class="msg"><b>${esc(a)} ↔ ${esc(b)}</b><div class="q">${esc(c.topic)} · ${c.turn_count} replies</div>${r?`<p>${esc(r.summary)}</p>${r.overlaps.map(x=>`<p><b>${esc(x.claim)}</b><br>${x.evidence.map(e=>`${esc(e.name)}: ${esc(e.text)}`).join('<br>')}</p>`).join('')}${r.next_step?`<p>Possible next step: ${esc(r.next_step)}</p>`:''}`:'<p class="meta">No master observation yet.</p>'}</div>`;
+  }).join('');
+  $('panel').innerHTML=`<button id="closePanel">✕</button><h2>Master findings</h2><p class="meta">Grounded AI observations from room-visible profiles and replies. The Muses speak for themselves.</p>${cards||'<p class="meta">Start a Muse conversation to see findings.</p>'}`;
+  $('panel').hidden=false;$('closePanel').onclick=()=>{$('panel').hidden=true;selected=null;};
+}
+$('masterButton').onclick=()=>{selected='master';if(state)renderMasterPanel();};
 
 // ---------- Interaction ----------
 const ray = new THREE.Raycaster(), pointer = new THREE.Vector2();
