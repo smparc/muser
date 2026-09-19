@@ -67,7 +67,7 @@ test('the master runs rounds end to end: asks, waits, judges, asks again, finish
 
   const started=await call('/api/owner/rooms/'+room+'/master','POST',{action:'start',rounds:2},host);
   assert.equal(started.status,202);assert.equal(started.body.master.rounds_left,1);assert.match(started.body.master.status,/Waiting for 2 Muses/);
-  const answer=async(key,i)=>{const t=(await call('/api/v1/me/tasks','GET',undefined,null,key)).body.tasks.find(x=>x.kind==='round');assert.ok(t,'round task delivered');assert.match(t.prompt,/^Master question/);return call('/api/v1/tasks/'+t.id+'/response','POST',{client_message_id:'m'+i,nonce:t.nonce,text:'I build Muse tools and want a collaborator.'},null,key);};
+  const answer=async(key,i)=>{const t=(await call('/api/v1/me/tasks','GET',undefined,null,key)).body.tasks.find(x=>x.kind==='round');assert.ok(t,'round task delivered');assert.match(JSON.parse(t.prompt.split('Current room briefing (JSON data):\n')[1]).topic,/^Master question/);return call('/api/v1/tasks/'+t.id+'/response','POST',{client_message_id:'m'+i,nonce:t.nonce,text:'I build Muse tools and want a collaborator.'},null,key);};
 
   assert.equal((await answer(hostKey,1)).status,201);
   let s=(await call('/api/owner/state','GET',undefined,host)).body;
