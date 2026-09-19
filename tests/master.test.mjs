@@ -201,6 +201,6 @@ test('Start conversation: Gemini writes the opening question for the chosen pair
   // A model failure is reported to the host instead of starting a conversation.
   const broken={label:'Gemini',model:'x',json:async()=>{throw Error('Gemini request failed: HTTP 503');}};
   const failed=await call('/api/owner/conversations','POST',body,null,masterRuntime(h.db,{},undefined,{providers:[broken]}));
-  assert.equal(failed.status,502);assert.match(failed.body.message,/HTTP 503/);
+  assert.equal(failed.status,424);assert.match(failed.body.message,/HTTP 503/);
  }finally{h.cleanup();}
 });
