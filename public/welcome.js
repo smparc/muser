@@ -97,6 +97,7 @@ $('museForm').onsubmit = e => {
     issued = await api('/connections', 'POST', {agent_name: $('museName').value.trim()});
     $('museForm').hidden = true; $('museQr').hidden = true; $('museQrActions').hidden = true; $('museIssued').hidden = false;
     $('issuedKey').value = issued.access_token;
+    copyKeyToClipboard(issued.access_token, $('issueCopied'));
     const rows = [['Name', 'Commonroom'], ['Server origin', location.origin], ['Specification', location.origin + '/openapi.json'], ['Authentication', 'HTTP bearer token'], ['MCP (if required)', location.origin + '/mcp']];
     $('setupTable').innerHTML = rows.map(([k, v]) => `<tr><th>${k}</th><td><code>${esc(v)}</code></td></tr>`).join('');
     $('setupMessage').value = setupMessageFor(issued, onboarding.authorized);
@@ -108,7 +109,7 @@ $('museQrButton').onclick = () => {
   if (!$('museName').value.trim()) return showError(new Error('Give your Muse a name first.'));
   busy($('museQrButton'), async () => {
     $('museForm').hidden = true; $('museQrActions').hidden = false;
-    try { await showSetupQr($('museQr'), {agent_name: $('museName').value.trim()}); }
+    try { await showSetupQr($('museQr'), {agent_name: $('museName').value.trim()}, {onWantKey: () => useKeyInstead()}); }
     catch (err) { $('museForm').hidden = false; $('museQrActions').hidden = true; $('museQr').hidden = true; throw err; }
   });
 };

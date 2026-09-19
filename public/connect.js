@@ -261,11 +261,19 @@ $('connectQrButton').onclick = () => {
   const name = $('agentName').value.trim();
   action($('connectQrButton'), async () => {
     $('qrBox').innerHTML = ''; $('qrDialog').showModal();
-    showSetupQr($('qrBox'), {agent_name: name, room_id: state.room.id}, {onConnected: () => refresh()})
+    showSetupQr($('qrBox'), {agent_name: name, room_id: state.room.id}, {onConnected: () => refresh(), onWantKey: wantKey})
       .catch(err => { $('qrDialog').close(); showError(err); });
     $('agentName').value = ''; $('confirmAccess').checked = false; connectOpen = false;
   });
 };
+// Muse insists on a pasted key: issue one for the same Muse name, and copy it to the clipboard.
+function wantKey(name) {
+  action(null, async () => {
+    const r = await api('/connections', 'POST', {agent_name: name, room_id: state.room.id});
+    $('qrDialog').close();
+    showIssued(r, false);
+  });
+}
 // Closing the dialog stops polling (the QR component checks it is still on screen).
 $('qrDialog').addEventListener('close', () => { $('qrBox').innerHTML = ''; });
 $('connectForm').onsubmit = e => {
@@ -292,6 +300,7 @@ function showIssued(r, replacement) {
   $('setupTable').querySelectorAll('[data-copy]').forEach(b => b.onclick = () => copy(b, b.dataset.copy));
   $('mcpUrl').textContent = origin + '/mcp';
   $('musePrompt').value = musePrompt();
+  copyKeyToClipboard(r.access_token, $('issueCopied'));
   renderIssueStatus();
   if (!$('keyDialog').open) $('keyDialog').showModal();
 }
@@ -305,11 +314,11 @@ function renderIssueStatus() {
 }
 function clearIssued() {
   issued = null;
-  $('issuedKey').value = ''; $('issuedKey').type = 'password';
+  $('issuedKey').value = ''; $('issuedKey').type = 'password'; $('issueCopied').textContent = '';
   if ($('keyDialog').open) $('keyDialog').close();
 }
 $('closeIssue').onclick = clearIssued;
-$('keyDialog').addEventListener('close', () => { issued = null; $('issuedKey').value = ''; });
+$('keyDialog').addEventListener('close', () => { issued = null; $('issuedKey').value = ''; $('issueCopied').textContent = ''; });
 $('toggleKey').onclick = () => { const k = $('issuedKey'); k.type = k.type === 'password' ? 'text' : 'password'; $('toggleKey').textContent = k.type === 'password' ? 'Show' : 'Hide'; };
 $('copyKey').onclick = () => copy($('copyKey'), $('issuedKey').value);
 $('copySetup').onclick = () => { if (issued) copy($('copySetup'), setupMessage(issued)); };
@@ -539,7 +548,7 @@ function joinRoom(button, withKey) {
     selectRoom(r.room_id); $('chat').dataset.html = ''; clearIssued();
     if (withKey) { if (r.connection) showIssued(r.connection, false); return; }
     $('qrBox').innerHTML = ''; $('qrDialog').showModal();
-    showSetupQr($('qrBox'), {agent_name: name, room_id: r.room_id}, {onConnected: () => refresh()})
+    showSetupQr($('qrBox'), {agent_name: name, room_id: r.room_id}, {onConnected: () => refresh(), onWantKey: wantKey})
       .catch(err => { $('qrDialog').close(); showError(err); });
   });
 }

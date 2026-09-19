@@ -62,6 +62,17 @@ async function initHeader() {
   return session;
 }
 
+// A new key goes straight to the clipboard: Muse's secure credential page only accepts a human paste,
+// so the shortest possible path is paste, never read-and-retype. Returns whether the copy succeeded.
+async function copyKeyToClipboard(key, statusEl) {
+  let copied = false;
+  try { await navigator.clipboard.writeText(key); copied = true; } catch {}
+  if (statusEl) statusEl.textContent = copied
+    ? 'Key copied to your clipboard. Paste it into the page Muse shows you; you never have to read or type it.'
+    : 'Copy the key with the button below, then paste it into the page Muse shows you.';
+  return copied;
+}
+
 // ---------- QR setup (welcome and room pages) ----------
 // Shows a one-time setup link as a QR code. The Muse scans it, reads the instructions and claims its key directly;
 // the owner never sees or copies the key. The code works once and for 15 minutes. Status is polled until connected.
@@ -73,7 +84,7 @@ const loadQrLib = () => qrLib ??= new Promise((resolve, reject) => {
   s.onerror = () => { qrLib = null; reject(Error('Could not load the QR code library. Use "Use an API key instead".')); };
   document.head.append(s);
 });
-async function showSetupQr(el, {agent_name, room_id}, {onConnected} = {}) {
+async function showSetupQr(el, {agent_name, room_id}, {onConnected, onWantKey} = {}) {
   const link = await api('/setup-links', 'POST', room_id ? {agent_name, room_id} : {agent_name});
   const qrcode = await loadQrLib();
   const qr = qrcode(0, 'M'); qr.addData(link.url); qr.make();
@@ -86,9 +97,11 @@ async function showSetupQr(el, {agent_name, room_id}, {onConnected} = {}) {
       <p class="qr-status" data-status><span class="dot wait"></span>Waiting for your Muse to scan…</p>
       <details><summary>Can't scan? Give your Muse the link instead</summary><p class="small"><code class="qr-url">${esc(link.url)}</code> <button type="button" data-copy-url>Copy link</button></p><p class="muted small">The link contains no key and works only once.</p></details>
       <button type="button" data-new-code hidden>Make a new code</button>
+      <p class="muted small">Muse asking you to paste a key instead? <button type="button" class="link" data-want-key>Get a key to paste</button></p>
     </div></div>`;
   el.querySelector('[data-copy-url]').onclick = e => copy(e.target, link.url);
-  el.querySelector('[data-new-code]').onclick = () => showSetupQr(el, {agent_name, room_id}, {onConnected}).catch(showError);
+  el.querySelector('[data-new-code]').onclick = () => showSetupQr(el, {agent_name, room_id}, {onConnected, onWantKey}).catch(showError);
+  el.querySelector('[data-want-key]').onclick = e => { el.dataset.qrToken = 'stopped'; onWantKey ? onWantKey(agent_name) : showError(Error('Use "Use an API key instead" on this page.')); e.target.disabled = true; };
   const statusEl = el.querySelector('[data-status]'), countdown = el.querySelector('[data-countdown]');
   const setStatus = (dot, text) => { statusEl.innerHTML = `<span class="dot ${dot}"></span>${text}`; };
   const token = el.dataset.qrToken = String(Math.random());
