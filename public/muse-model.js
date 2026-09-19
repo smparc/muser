@@ -7,7 +7,7 @@ export function seedFor(value) {
   return h >>> 0;
 }
 
-export function createMuse({seed = 1, accessory = 'scarf', detail = 1} = {}) {
+export function createMuse({seed = 1, accessory = 'scarf', detail = 1, identity = seed, connectionStatus = 'connected'} = {}) {
   let randomSeed = seed || 1;
   const random = () => { randomSeed = (Math.imul(1664525, randomSeed) + 1013904223) >>> 0; return randomSeed / 4294967296; };
   const root = new THREE.Group();
@@ -22,6 +22,8 @@ export function createMuse({seed = 1, accessory = 'scarf', detail = 1} = {}) {
   const eyesMaterial = new THREE.MeshStandardMaterial({color: 0x211d1b, roughness: .22});
   const pink = new THREE.MeshStandardMaterial({color: 0xeebca9, roughness: 1});
   const white = new THREE.MeshBasicMaterial({color: 0xffffff});
+  const identityMaterial = new THREE.MeshStandardMaterial({color: 0x7195e1, roughness: .72});
+  const statusMaterial = new THREE.MeshBasicMaterial({color: 0x42b881, transparent: true, opacity: .82});
   const sphere = new THREE.SphereGeometry(1, 28, 20);
   const tuft = new THREE.SphereGeometry(1, 6, 4);
   const ball = (parent, material, scale, position) => {
@@ -78,6 +80,19 @@ export function createMuse({seed = 1, accessory = 'scarf', detail = 1} = {}) {
   }
   // The Commonroom mark is real blue piping on the belly.
   curve(rig, [[-.22, 1.07, .49], [-.10, 1.31, .505], [-.10, 1.08, .523], [.08, 1.30, .511], [.06, 1.07, .53], [.23, 1.24, .505]], .034, blue);
+  const identityBadge = new THREE.Mesh(new THREE.CircleGeometry(.115, 20), identityMaterial);
+  identityBadge.position.set(0, 1.02, .555); rig.add(identityBadge);
+  const statusRing = new THREE.Mesh(new THREE.TorusGeometry(.64, .035, 8, 40), statusMaterial);
+  statusRing.rotation.x = Math.PI / 2; statusRing.position.y = .055; rig.add(statusRing);
+  const identityColor = new THREE.Color().setHSL((seedFor(identity) % 360) / 360, .62, .56);
+  identityMaterial.color.copy(identityColor);
+  const statusColors = {connected: 0x42b881, awaiting_first_request: 0xe1a63b, expired: 0x929aa5, revoked: 0x6d737c};
+  const setConnectionState = ({owner = identity, status = 'connected'} = {}) => {
+    identityMaterial.color.setHSL((seedFor(owner) % 360) / 360, .62, .56);
+    statusMaterial.color.setHex(statusColors[status] ?? statusColors.expired);
+    statusRing.visible = status !== 'revoked';
+  };
+  setConnectionState({owner: identity, status: connectionStatus});
   if (accessory === 'scarf') {
     const collar = new THREE.Mesh(new THREE.TorusGeometry(.48, .105, 10, 36), blue);
     collar.rotation.x = Math.PI / 2; collar.position.set(0, 1.52, 0); collar.scale.z = .94; rig.add(collar);
@@ -95,7 +110,7 @@ export function createMuse({seed = 1, accessory = 'scarf', detail = 1} = {}) {
   }
 
   return {
-    root, rig, head, arms, feet, eyes,
+    root, rig, head, arms, feet, eyes, setConnectionState,
     animate(time, {motion = 'idle', walking = 0, energy = 1, reducedMotion = false} = {}) {
       const t = time + (seed % 113) / 13;
       const animated = !reducedMotion;
