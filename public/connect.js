@@ -109,6 +109,7 @@ function polling(c) {
 
 function render() {
   renderRoom();
+  renderMyAgents();
   renderIssueStatus();
   renderConnections();
   renderSelectors();
@@ -310,6 +311,35 @@ $('invite').onclick = () => action($('invite'), async () => {
   $('invitePrompt').value = `Read ${location.origin}/agent-guide.md (section "Optional: pairing"). My one-use invite code is: ${r.invite_code}\nStart a pairing request with your agent name${auto ? ' and redeem immediately (pre-authorized)' : ', show me the verification code and wait for my approval'}. Store the resulting key only in a supported credential mechanism; if you have none, stop and tell me — I can issue a connector key instead.`;
 });
 
+// ---------- Your Muse in this room ----------
+function renderMyAgents() {
+  const mine = state.connections.filter(c => c.mine && c.status !== 'revoked');
+  const me = state.members.find(m => m.you);
+  $('myRoomName').textContent = state.room.name.toUpperCase();
+  $('leaveArea').innerHTML = isHost()
+    ? '<span class="small">You host this room, so you can’t leave it. Switch rooms with the picker above.</span>'
+    : `<button id="leaveRoom" data-member="${esc(me?.id ?? '')}">Leave room</button>`;
+  if (!isHost()) $('leaveRoom').onclick = () => leaveRoom($('leaveRoom'), $('leaveRoom').dataset.member);
+  $('myAgents').innerHTML = mine.map(c => `<div class="connection"><div class="connection-top"><strong>${esc(c.name)}</strong><span class="pill ${esc(c.status)}">${STATUS_LABEL[c.status]}</span></div>
+    <p class="small">Last API activity ${c.last_seen_at ? ago(c.last_seen_at) : 'never'} · last inbox check ${c.last_inbox_at ? ago(c.last_inbox_at) : 'never'} · key expires ${time(c.expires_at)}</p>
+    <div class="buttons"><button class="primary" data-mykey="${esc(c.id)}">Get new API key</button><button data-mydisconnect="${esc(c.id)}">Disconnect</button></div></div>`).join('');
+  $('connectHeading').textContent = mine.length ? 'Connect another Muse' : 'Connect your Muse to this room';
+  $('connectHint').textContent = mine.length
+    ? 'Your Muse is already connected here. The API key was shown once when it was created; lost it? Use “Get new API key” above (the old key stops working).'
+    : 'Creates the API key your Muse uses to join this room. It’s shown once, with the exact connector settings.';
+  document.querySelectorAll('[data-mykey]').forEach(b => b.onclick = () => {
+    if (!confirm('Get a new API key? The current key stops working immediately, so update the key saved in your Muse connector.')) return;
+    action(b, async () => showIssued(await api('/connections/' + b.dataset.mykey + '/token', 'POST', {}), true));
+  });
+  document.querySelectorAll('[data-mydisconnect]').forEach(b => b.onclick = () => {
+    if (confirm('Disconnect this Muse from the room? Its key stops working immediately.')) action(b, () => api('/connections/' + b.dataset.mydisconnect, 'DELETE'));
+  });
+}
+function leaveRoom(button, memberId) {
+  if (!confirm('Leave ' + state.room.name + '? Your Muse in this room is disconnected immediately. You can rejoin with a new invite code.')) return;
+  action(button, async () => { await api('/rooms/' + state.room.id + '/members/' + memberId, 'DELETE'); selectRoom(null); clearIssued(); });
+}
+
 // ---------- Room membership ----------
 function renderRoom() {
   const room = state.room;
@@ -326,9 +356,7 @@ function renderRoom() {
     ${m.role !== 'host' && m.you ? `<button data-leave="${esc(m.id)}">Leave room</button>` : ''}
     ${m.role !== 'host' && !m.you && isHost() ? `<button data-remove="${esc(m.id)}" data-name="${esc(m.name)}">Remove</button>` : ''}</div>`).join('');
   $('roomInvites').innerHTML = state.invites.length ? '<h3>Active codes</h3>' + state.invites.map(i => `<div class="member"><span>${esc(i.label || 'Invite code')} <span class="meta">${i.uses}/${i.max_uses} used · expires ${time(i.expires_at)}</span></span><button data-revoke-invite="${esc(i.id)}">Revoke</button></div>`).join('') : '';
-  document.querySelectorAll('[data-leave]').forEach(b => b.onclick = () => {
-    if (confirm('Leave this room? Your agents here are disconnected immediately.')) action(b, async () => { await api('/rooms/' + room.id + '/members/' + b.dataset.leave, 'DELETE'); selectRoom(null); });
-  });
+  document.querySelectorAll('[data-leave]').forEach(b => b.onclick = () => leaveRoom(b, b.dataset.leave));
   document.querySelectorAll('[data-remove]').forEach(b => b.onclick = () => {
     if (confirm('Remove ' + b.dataset.name + ' from the room? Their agents here are disconnected immediately.')) action(b, () => api('/rooms/' + room.id + '/members/' + b.dataset.remove, 'DELETE'));
   });
@@ -351,7 +379,13 @@ $('copyInvite').onclick = () => copy($('copyInvite'), $('newInviteCode').textCon
 $('closeInvite').onclick = () => { $('newInviteCode').textContent = ''; $('newInvite').hidden = true; };
 $('joinForm').onsubmit = e => {
   e.preventDefault();
-  action($('joinButton'), async () => { const r = await api('/rooms/join', 'POST', {code: $('joinCode').value}); $('joinCode').value = ''; selectRoom(r.room_id); clearIssued(); });
+  if (!$('joinConfirm').checked) return showError(new Error('Confirm room access first.'));
+  action($('joinButton'), async () => {
+    const r = await api('/rooms/join', 'POST', {code: $('joinCode').value, agent_name: $('joinAgentName').value.trim()});
+    $('joinCode').value = $('joinAgentName').value = ''; $('joinConfirm').checked = false;
+    selectRoom(r.room_id);
+    if (r.connection) showIssued(r.connection, false); else clearIssued();
+  });
 };
 
 $('retrySignIn').onclick = refresh;

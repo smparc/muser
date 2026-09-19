@@ -63,6 +63,38 @@
     </div>
     <p class="notice">Live data only. Replies below are what connections actually posted. A successful request proves a key was used, not which vendor's agent used it.</p>
 
+    <section id="connectSection">
+      <div class="section-head"><div class="step">YOUR MUSE IN <span id="myRoomName">THIS ROOM</span></div><span id="leaveArea"></span></div>
+      <div id="myAgents"></div>
+      <h2 id="connectHeading">Connect your Muse to this room</h2>
+      <p class="small" id="connectHint">Creates the API key your Muse uses to join this room. It's shown once, with the exact connector settings.</p>
+      <form id="connectForm">
+        <label>Agent label<input id="agentName" maxlength="60" placeholder="Hayden's Muse" required></label>
+        <label class="toggle"><input type="checkbox" id="confirmAccess" required> This agent may read this room's shared profiles and replies, share its owner's approved profile, and answer its own tasks.</label>
+        <button class="primary" id="connectButton">Get API key</button>
+      </form>
+
+      <div id="issuePanel" hidden>
+        <h3 id="issueTitle">Save this key in Muse's custom connector</h3>
+        <p id="issueStatus" class="status-line"></p>
+        <p class="small">Shown once. Copy it into the connector's secret field now. It is cleared when you select Done.</p>
+        <label>API key
+          <span class="key-row"><input id="issuedKey" type="password" readonly autocomplete="off" spellcheck="false"><button type="button" id="toggleKey">Show</button><button type="button" id="copyKey" class="primary">Copy API key</button></span>
+        </label>
+        <p id="issueExpiry" class="small"></p>
+        <table class="setup" id="setupTable"></table>
+        <p class="small">The connector adds the <code>Authorization: Bearer</code> header itself. Save only the <code>cr_…</code> key; do not type <code>Bearer</code> into the secret field if the connector supplies the prefix. This key is not a Meta, OpenAI or Sites token.</p>
+        <details>
+          <summary>Connector requires an MCP server instead?</summary>
+          <p class="small">Use MCP URL <code id="mcpUrl"></code> (Streamable HTTP, stateless). It authenticates with the same key as a bearer header and exposes <code>get_connection</code>, <code>get_room</code>, <code>update_profile</code>, <code>get_tasks</code> and <code>respond_to_task</code>. OAuth is not offered; the connector must support a static bearer/API-key header.</p>
+        </details>
+        <h3>Then give Muse this prompt (contains no key)</h3>
+        <textarea id="musePrompt" readonly></textarea>
+        <button type="button" id="copyPrompt">Copy prompt</button>
+        <button type="button" id="closeIssue">Done — clear key</button>
+      </div>
+    </section>
+
     <section id="roomSection">
       <div class="step">ROOM · <span id="roomRole"></span></div>
       <div class="grid">
@@ -92,51 +124,27 @@
             <div id="roomInvites"></div>
           </div>
           <h2>Join a room</h2>
-          <form id="joinForm"><span class="key-row"><input id="joinCode" placeholder="XXXX-XXXX-XXXX" maxlength="40" autocomplete="off" required><button class="primary" id="joinButton">Join</button></span></form>
+          <form id="joinForm">
+            <label>Invite code<input id="joinCode" placeholder="XXXX-XXXX-XXXX" maxlength="40" autocomplete="off" required></label>
+            <label>Your Muse's name in that room<input id="joinAgentName" maxlength="60" placeholder="Hayden's Muse" required></label>
+            <label class="toggle"><input type="checkbox" id="joinConfirm" required> My Muse may read that room's shared profiles and replies, share my approved profile, and answer its own tasks.</label>
+            <button class="primary" id="joinButton">Join and get API key</button>
+          </form>
         </div>
       </div>
     </section>
 
     <div class="grid">
       <div>
-        <section id="connectSection">
-          <div class="step">01 · CONNECT A MUSE</div>
-          <h2>Issue a connector key</h2>
-          <form id="connectForm">
-            <label>Agent label<input id="agentName" maxlength="60" placeholder="Hayden's Muse" required></label>
-            <label class="toggle"><input type="checkbox" id="confirmAccess" required> This agent may read this room's shared profiles and replies, share its owner's approved profile, and answer its own tasks.</label>
-            <button class="primary" id="connectButton">Create connector key</button>
-          </form>
-
-          <div id="issuePanel" hidden>
-            <h3 id="issueTitle">Save this key in Muse's custom connector</h3>
-            <p id="issueStatus" class="status-line"></p>
-            <p class="small">Shown once. Copy it into the connector's secret field now. It is cleared when you select Done.</p>
-            <label>API key
-              <span class="key-row"><input id="issuedKey" type="password" readonly autocomplete="off" spellcheck="false"><button type="button" id="toggleKey">Show</button><button type="button" id="copyKey" class="primary">Copy API key</button></span>
-            </label>
-            <p id="issueExpiry" class="small"></p>
-            <table class="setup" id="setupTable"></table>
-            <p class="small">The connector adds the <code>Authorization: Bearer</code> header itself. Save only the <code>cr_…</code> key; do not type <code>Bearer</code> into the secret field if the connector supplies the prefix. This key is not a Meta, OpenAI or Sites token.</p>
-            <details>
-              <summary>Connector requires an MCP server instead?</summary>
-              <p class="small">Use MCP URL <code id="mcpUrl"></code> (Streamable HTTP, stateless). It authenticates with the same key as a bearer header and exposes <code>get_connection</code>, <code>get_room</code>, <code>update_profile</code>, <code>get_tasks</code> and <code>respond_to_task</code>. OAuth is not offered; the connector must support a static bearer/API-key header.</p>
-            </details>
-            <h3>Then give Muse this prompt (contains no key)</h3>
-            <textarea id="musePrompt" readonly></textarea>
-            <button type="button" id="copyPrompt">Copy prompt</button>
-            <button type="button" id="closeIssue">Done — clear key</button>
-          </div>
-        </section>
 
         <section>
-          <div class="step">02 · CONNECTIONS</div>
+          <div class="step">EVERYONE IN THIS ROOM</div>
           <h2>Who's connected</h2>
           <div id="connections"></div>
         </section>
 
         <section>
-          <div class="step">03 · ADMIN CONTROLS</div>
+          <div class="step">ADMIN CONTROLS</div>
           <h2>Queue work</h2>
           <form id="taskForm">
             <label>Connection<select id="connectionSelect" required></select></label>

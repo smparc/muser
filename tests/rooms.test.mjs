@@ -71,6 +71,23 @@ test('invite limits: use cap and revocation',async()=>{
  assert.equal((await req('/api/owner/rooms/join','POST',{code:r3.code},fourth)).status,410);
 });
 
+test('joining with a Muse name returns a working key for that room in one step',async()=>{
+ const newbie={id:'owner-newbie',name:'Newbie'};
+ const inv=(await req('/api/owner/rooms/'+room+'/invites','POST',{},host)).body;
+ const j=await req('/api/owner/rooms/join','POST',{code:inv.code,agent_name:"Newbie's Muse"},newbie);
+ assert.equal(j.status,201);assert.match(j.body.connection.access_token,/^cr_[a-f0-9]{64}$/);assert.equal(j.body.connection.room_id,room);
+ const me=await req('/api/v1/me','GET',undefined,null,j.body.connection.access_token);assert.equal(me.status,200);assert.equal(me.body.room_id,room);
+ // Already a member: the same call still issues a key (e.g. to connect a second Muse).
+ const again=await req('/api/owner/rooms/join','POST',{code:inv.code,agent_name:'Second Muse'},newbie);
+ assert.equal(again.status,200);assert.equal(again.body.already_member,true);assert.ok(again.body.connection.access_token);
+ assert.equal(h.sql.prepare('SELECT uses FROM room_invites WHERE id=?').get(inv.invite_id).uses,1);
+ // Without a name, joining issues no key.
+ const plain=await req('/api/owner/rooms/join','POST',{code:inv.code},newbie);assert.equal(plain.body.connection,null);
+ const nm=(await state(newbie,room)).room.member_id;
+ assert.equal((await req('/api/owner/rooms/'+room+'/members/'+nm,'DELETE',undefined,newbie)).body.status,'left');
+ assert.equal((await req('/api/v1/me','GET',undefined,null,j.body.connection.access_token)).status,401);
+});
+
 test('removing a member revokes their agents; members can leave; host cannot',async()=>{
  const s=await state(host);const sam=s.members.find(m=>m.name==='Sam'),hayden=s.members.find(m=>m.role==='host');
  assert.equal((await req('/api/owner/rooms/'+room+'/members/'+hayden.id,'DELETE',undefined,guest)).status,403);
