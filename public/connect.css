@@ -234,3 +234,4 @@ body.is-archived .chat{background:#f6f5f8}
 .hidden-fact{opacity:.5;text-decoration:line-through}
 .hidden-fact .link{text-decoration:none}
 .facts-empty{margin:4px 0 0}
+.bring{display:grid;gap:6px;margin:8px 0}.bring button{justify-self:start}

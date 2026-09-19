@@ -209,21 +209,27 @@ function renderMyMuse() {
   $('myAgents').innerHTML = mine.map(c => {
     const l = liveness(c);
     const draft = directMuseDrafts.get(c.id) ?? '';
-    return `<div class="muse-row"><div class="muse-row-main"><div><div class="muse-name"><span class="dot ${l.dot}"></span>${esc(c.name)}</div><div class="muted small">${esc(l.text)} · key expires ${new Date(c.expires_at).toLocaleDateString()}</div></div>
+    return `<div class="muse-row"><div class="muse-row-main"><div><div class="muse-name"><span class="dot ${l.dot}"></span>${esc(c.name)}</div><div class="muted small">${esc(l.text)} · ${c.key_of ? 'same key as your other rooms · ' : ''}key renews while it checks in</div></div>
       <div class="muse-buttons"><button type="button" data-sync="${esc(c.id)}" title="Ask this Muse to gather facts about you from its connected apps">Sync from my apps</button><button type="button" data-mykey="${esc(c.id)}">New key</button><button type="button" class="danger" data-mydisconnect="${esc(c.id)}">Disconnect</button></div>
       <form class="direct-muse-form" data-direct-muse="${esc(c.id)}"><label>Message ${esc(c.name)}<textarea name="prompt" maxlength="1500" placeholder="Ask your Muse to help with something..." required>${esc(draft)}</textarea></label><button class="primary" type="submit">Send to ${esc(c.name)}</button></form></div></div>${myFacts(c)}`;
   }).join('');
   const hasMuse = mine.length > 0;
-  $('connectForm').hidden = hasMuse && !connectOpen;
-  $('showConnect').hidden = !hasMuse || connectOpen;
+  // Muses already connected elsewhere: one click brings them here with the key they already have.
+  const away = (state.my_muses ?? []).filter(m => !m.here);
+  $('bringMuse').hidden = !away.length || state.room.archived_at;
+  $('bringMuse').innerHTML = away.map(m => `<button type="button" class="${hasMuse ? '' : 'primary'}" data-bring="${esc(m.id)}">Bring ${esc(m.name)} into this room</button>`).join('') +
+    (away.length ? '<p class="muted small">It uses the key it already has, so there is nothing to paste. It picks up this room on its next check.</p>' : '');
+  document.querySelectorAll('[data-bring]').forEach(b => b.onclick = () => action(b, () => api('/connections', 'POST', {link: b.dataset.bring, room_id: state.room.id})));
+  $('connectForm').hidden = (hasMuse || away.length > 0) && !connectOpen;
+  $('showConnect').hidden = !(hasMuse || away.length) || connectOpen;
   document.querySelectorAll('[data-sync]').forEach(b => b.onclick = () => action(b, async () => { await api('/connections/' + b.dataset.sync + '/context-sync', 'POST', {}); b.textContent = 'Asked · runs on its next check'; }));
   bindFactButtons($('myAgents'));
   document.querySelectorAll('[data-mykey]').forEach(b => b.onclick = () => {
-    if (!confirm('Get a new API key? The current key stops working immediately, so update the key saved in your Muse connector.')) return;
+    if (!confirm('Get a new API key? The current key stops working immediately in every room this Muse is in, so update the key saved in your Muse connector.')) return;
     action(b, async () => showIssued(await api('/connections/' + b.dataset.mykey + '/token', 'POST', {}), true));
   });
   document.querySelectorAll('[data-mydisconnect]').forEach(b => b.onclick = () => {
-    if (confirm('Disconnect this Muse from the room? Its key stops working immediately.')) action(b, () => api('/connections/' + b.dataset.mydisconnect, 'DELETE'));
+    if (confirm('Disconnect this Muse from this room? It stays connected in your other rooms; if this is its only room, its key stops working.')) action(b, () => api('/connections/' + b.dataset.mydisconnect, 'DELETE'));
   });
   document.querySelectorAll('[data-direct-muse]').forEach(form => {
     const prompt = form.querySelector('[name="prompt"]');
@@ -291,7 +297,7 @@ function showIssued(r, replacement) {
   issued = r;
   $('issuedKey').value = r.access_token; $('issuedKey').type = 'password'; $('toggleKey').textContent = 'Show';
   $('issueTitle').textContent = replacement ? `New key for ${r.agent_name}` : `Set up ${r.agent_name}`;
-  $('issueExpiry').textContent = 'Expires ' + time(r.expires_at) + ' (7 days). Get a new key from Your Muse when needed.' + (replacement ? ' The previous key no longer works.' : '');
+  $('issueExpiry').textContent = 'Renews automatically while your Muse keeps checking in (expires after 30 days without use).' + (replacement ? ' The previous key no longer works.' : '');
   const origin = location.origin;
   $('issueReachability').hidden = !['localhost', '127.0.0.1', '::1'].includes(location.hostname);
   $('issueReachability').textContent = 'This is a local address. A Muse running elsewhere needs a public Commonroom URL before it can connect.';
@@ -480,12 +486,33 @@ function renderInvites() {
   $('joinProfileNote').innerHTML = state.my_profile ? 'Your profile is shared with the room when you join.' : 'Tip: <a href="/profile.html">fill in your profile</a> first — it is shared with the room automatically when you join.';
 }
 $('openInvite').onclick = () => { $('newInvite').hidden = true; $('inviteDialog').showModal(); };
-$('openJoin').onclick = () => $('joinDialog').showModal();
-$('openCreate').onclick = () => { $('createName').value = ''; $('createDialog').showModal(); $('createName').focus(); };
+$('openJoin').onclick = () => {
+  const muses = state?.my_muses ?? [];
+  $('joinBring').innerHTML = muses.map(m => `<option value="${esc(m.id)}">${esc(m.name)}</option>`).join('') + '<option value="">Connect a new Muse…</option>';
+  syncJoinChoice();
+  $('joinDialog').showModal();
+};
+// With a connected Muse chosen, joining brings it along (no key, no QR); "a new Muse" shows the name field and QR.
+function syncJoinChoice() {
+  const has = (state?.my_muses ?? []).length > 0, bring = has && $('joinBring').value !== '';
+  $('joinBringLabel').hidden = !has; $('joinBringNote').hidden = !bring;
+  $('joinNameLabel').hidden = bring; $('joinAgentName').required = !bring;
+  $('joinKeyButton').hidden = bring; $('joinQrNote').hidden = bring;
+  $('joinButton').textContent = bring ? 'Join with my Muse' : 'Join and show QR code';
+}
+$('joinBring').onchange = syncJoinChoice;
+$('openCreate').onclick = () => {
+  const muse = state?.my_muses?.[0];
+  $('createBringLabel').hidden = !muse; $('createBring').checked = !!muse;
+  if (muse) $('createBringText').textContent = `Bring ${muse.name} (uses the key it already has)`;
+  $('createName').value = ''; $('createDialog').showModal(); $('createName').focus();
+};
 $('createForm').onsubmit = e => {
   e.preventDefault();
   action($('createButton'), async () => {
-    const r = await api('/rooms', 'POST', {name: $('createName').value.trim()});
+    const muse = state?.my_muses?.[0], body = {name: $('createName').value.trim()};
+    if (muse && $('createBring').checked) body.link = muse.id;
+    const r = await api('/rooms', 'POST', body);
     $('createDialog').close();
     selectRoom(r.room_id); clearIssued(); $('chat').dataset.html = '';
     // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- This static HTML page does not use Next.js routing.
@@ -541,8 +568,10 @@ function joinRoom(button, withKey) {
   if (!$('joinForm').reportValidity()) return;
   if (!$('joinConfirm').checked) return showError(new Error('Confirm room access first.'));
   const name = $('joinAgentName').value.trim();
+  const bring = !$('joinBringLabel').hidden && $('joinBring').value;
   action(button, async () => {
-    const r = await api('/rooms/join', 'POST', withKey ? {code: $('joinCode').value, agent_name: name} : {code: $('joinCode').value});
+    const r = await api('/rooms/join', 'POST', bring ? {code: $('joinCode').value, link: bring} : withKey ? {code: $('joinCode').value, agent_name: name} : {code: $('joinCode').value});
+    if (bring) { $('joinCode').value = ''; $('joinConfirm').checked = false; $('joinDialog').close(); selectRoom(r.room_id); $('chat').dataset.html = ''; clearIssued(); return; }
     $('joinCode').value = $('joinAgentName').value = ''; $('joinConfirm').checked = false;
     $('joinDialog').close();
     selectRoom(r.room_id); $('chat').dataset.html = ''; clearIssued();

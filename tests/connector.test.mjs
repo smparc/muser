@@ -17,7 +17,7 @@ test('owner issues a connector key without any pairing',async()=>{
  assert.match(r.body.access_token,/^cr_[a-f0-9]{64}$/);
  assert.equal(r.body.token_type,'Bearer');
  assert.equal(typeof r.body.expires_at,'number');
- assert.ok(Math.abs(r.body.expires_at-(Date.now()+7*86400000))<60000);
+ assert.ok(Math.abs(r.body.expires_at-(Date.now()+30*86400000))<60000);
  assert.deepEqual(r.body.scopes,['profile:write','tasks:read:own','responses:write:own','room:read']);
  key=r.body.access_token;cid=r.body.connection_id;
  assert.equal(h.sql.prepare('SELECT count(*) AS n FROM pairings').get().n,0);

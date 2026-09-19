@@ -25,7 +25,7 @@ assert.equal((await agent(key,`/api/v1/tasks/${tasks[0].id}/response`,'POST',rep
 s=(await owner('/api/owner/state')).body;assert.equal(s.responses.find(r=>r.task_id===tasks[0].id).text,reply.text);step('3. initial task answered; dashboard state shows the reply');
 const retry=await agent(key,`/api/v1/tasks/${tasks[0].id}/response`,'POST',reply);assert.equal(retry.body.replayed,true);
 assert.equal((await agent(key,`/api/v1/tasks/${tasks[0].id}/response`,'POST',{...reply,client_message_id:'smoke-2',nonce:'wrong'})).status,422);step('6. exact retry replayed once; wrong nonce rejected');
-const round=await owner('/api/owner/rounds','POST',{});assert.equal(round.status,201);
+const round=await owner('/api/owner/rounds','POST',{prompt:'Smoke round: say hello.'});assert.equal(round.status,201);
 const t2=(await agent(key,'/api/v1/me/tasks')).body.tasks.find(t=>t.kind==='round');assert.ok(t2);step('room round delivered to inbox');
 const mcp=await fetch(origin+'/mcp',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json, text/event-stream',Authorization:'Bearer '+key},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'respond_to_task',arguments:{task_id:t2.id,client_message_id:'smoke-mcp',nonce:t2.nonce,text:'Round reply via MCP.'}}})}).then(r=>r.json());
 assert.equal(mcp.result.structuredContent.status,'accepted');step('MCP respond_to_task through the same key');
@@ -50,4 +50,10 @@ assert.ok(shared.people.some(p=>p.name==='Smoke Guest'&&p.interests.includes('sm
 assert.equal((await owner(`/api/owner/rooms/${hostRoom}/invites`,'POST',{})).status,403);
 cookie=hostCookie;assert.ok((await owner('/api/owner/state')).body.members.some(m=>m.name==='Smoke Guest'));
 step('room invite code: second owner joined, connected their agent into the shared room');
+// One key per Muse: a second room brings the same Muse in without a new key.
+const muse=await owner('/api/owner/connections','POST',{agent_name:'Roaming Muse'});
+const second=await owner('/api/owner/rooms','POST',{name:'Smoke side room',link:muse.body.connection_id});assert.equal(second.status,201);assert.equal(second.body.connection.access_token,undefined);
+const me=(await agent(muse.body.access_token,'/api/v1/me')).body;assert.equal(me.rooms.length,2);
+const roomsWithTasks=new Set((await agent(muse.body.access_token,'/api/v1/me/tasks')).body.tasks.map(t=>t.room_id));assert.ok(roomsWithTasks.has(second.body.room_id)&&roomsWithTasks.has(hostRoom));
+step('one key, two rooms: second room joined with no new key, tasks from both');
 console.log('\nSmoke test complete against',origin,'— this exercises HTTP only; it is not a Muse client.');

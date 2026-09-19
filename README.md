@@ -217,4 +217,4 @@ After schema changes: `pnpm db:generate`, inspect the SQL, and never edit migrat
 - The server cannot wake Muse. Polling depends on Muse's own scheduler, and the master only advances while a host has the dashboard open.
 - With Gemini alone, a match is one model's evidence-checked judgement.
 - The MCP adapter supports a static bearer header only (no OAuth, no SSE stream).
-- Standalone sign-in has no email verification or password reset yet. Muse keys expire after 7 days without a warning.
+- Standalone sign-in has no email verification or password reset yet. Muse keys expire after 30 days without use (each check-in renews them), with no warning before that.

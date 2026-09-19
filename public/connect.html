@@ -85,6 +85,7 @@
         <section class="card" id="myMuseCard">
           <div class="card-head"><h2>Your Muse</h2></div>
           <div id="myAgents"></div>
+          <div id="bringMuse" class="bring" hidden></div>
           <button type="button" id="showConnect" class="link" hidden>+ Connect another Muse</button>
           <form id="connectForm">
             <p class="muted small" id="connectHint">Creates the API key your Muse uses to join this room, with the exact connector settings.</p>
@@ -194,7 +195,7 @@
   <p id="issueStatus" class="status-line"></p>
   <p id="issueReachability" class="small warn" hidden></p>
   <h3>1. Save the key in Muse's connector</h3>
-  <p class="muted small">Shown only now. Paste it into the custom connector's secret field. It is cleared when you close this window.</p>
+  <p class="muted small">Shown only now. Paste it into the custom connector's secret field once: the same key works in every room you bring this Muse into, and stays valid while your Muse keeps checking in. It is cleared when you close this window.</p>
   <label>API key<span class="key-row"><input id="issuedKey" type="password" readonly autocomplete="off" spellcheck="false"><button type="button" id="toggleKey">Show</button><button type="button" id="copyKey" class="primary">Copy API key</button></span></label>
   <p id="issueCopied" class="status-line"></p>
   <p id="issueExpiry" class="muted small"></p>
@@ -236,11 +237,13 @@
   <div class="dialog-head"><h2>Join a room</h2><form method="dialog"><button class="link">Close</button></form></div>
   <form id="joinForm">
     <label>Invite code<input id="joinCode" placeholder="XXXX-XXXX-XXXX" maxlength="40" autocomplete="off" required></label>
-    <label>Your Muse's name in that room<input id="joinAgentName" maxlength="60" placeholder="Hayden's Muse" required></label>
+    <label id="joinBringLabel" hidden>Your Muse<select id="joinBring"></select></label>
+    <p class="muted small" id="joinBringNote" hidden>Your Muse joins with the key it already has. Nothing to paste.</p>
+    <label id="joinNameLabel">Your Muse's name in that room<input id="joinAgentName" maxlength="60" placeholder="Hayden's Muse"></label>
     <label class="toggle"><input type="checkbox" id="joinConfirm" required> My Muse may read that room's profiles and replies, share my approved profile, and answer its own tasks.</label>
     <p class="muted small" id="joinProfileNote"></p>
-    <div class="row"><button class="primary" id="joinButton">Join and show QR code</button><button type="button" class="link" id="joinKeyButton">Join and get an API key instead</button></div>
-    <p class="muted small">Your Muse scans the QR code and connects itself. No key to copy.</p>
+    <div class="row"><button class="primary" id="joinButton">Join</button><button type="button" class="link" id="joinKeyButton">Join and get an API key instead</button></div>
+    <p class="muted small" id="joinQrNote">Your Muse scans the QR code and connects itself. No key to copy.</p>
   </form>
 </dialog>
 
@@ -250,6 +253,7 @@
   <p class="muted small">You'll host it: invite people with a code, connect Muses and ask the room questions. Your profile is shared there by default.</p>
   <form id="createForm">
     <label>Room name<input id="createName" maxlength="80" placeholder="Climbing crew" required></label>
+    <label class="toggle" id="createBringLabel" hidden><input type="checkbox" id="createBring" checked> <span id="createBringText"></span></label>
     <button class="primary" id="createButton">Create room</button>
   </form>
 </dialog>
