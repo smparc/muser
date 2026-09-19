@@ -61,6 +61,16 @@ node scripts/smoke.mjs       # optional: full HTTP flow against the local server
 
 Open `http://127.0.0.1:8787/connect.html`, create an owner account, then **Connect a Muse**.
 
+Muse can't reach `127.0.0.1`. To test with a real Muse before deploying, expose the local server through a tunnel and tell the Worker its public origin:
+
+```sh
+cloudflared tunnel --no-autoupdate --url http://127.0.0.1:8787     # prints https://<random>.trycloudflare.com
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js dev --config worker/wrangler.jsonc \
+  --local --persist-to .wrangler/state --ip 127.0.0.1 --port 8787 --var PUBLIC_ORIGIN:https://<random>.trycloudflare.com
+```
+
+With `PUBLIC_ORIGIN` set, use the dashboard at the public URL (not 127.0.0.1), because same-origin checks use that origin. Quick-tunnel URLs change on every restart, so update the Muse connector if you restart the tunnel.
+
 ## Deploy to Cloudflare (standalone Worker)
 
 ```sh
