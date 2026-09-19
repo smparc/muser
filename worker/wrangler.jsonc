@@ -1,0 +1,26 @@
+{
+  // Standalone deployment (not Sites). See README "Deploy to Cloudflare".
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "commonroom",
+  "main": "index.mjs",
+  "compatibility_date": "2026-05-15",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "assets": {
+    "directory": "../public",
+    "binding": "ASSETS",
+    // Dynamic routes must reach the Worker before static files (openapi.json and agent-guide.md get the live origin).
+    "run_worker_first": ["/api/*", "/mcp", "/mcp/", "/openapi.json", "/agent-guide.md", "/"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "commonroom",
+      // Replace with the ID printed by: wrangler d1 create commonroom
+      "database_id": "00000000-0000-4000-8000-000000000000",
+      "migrations_dir": "../drizzle"
+    }
+  ],
+  "observability": { "enabled": true }
+  // Optional secret gating owner sign-up: wrangler secret put OWNER_SIGNUP_CODE --config worker/wrangler.jsonc
+}
