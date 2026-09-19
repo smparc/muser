@@ -106,8 +106,7 @@ code.big{font-size:20px;letter-spacing:2px;padding:6px 10px}
 /* ---------- Your Muse ---------- */
 .muse-row{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid #f1edf6}
 .muse-name{font-weight:650}
-.muse-buttons{display:flex;gap:6px}
-.muse-buttons{flex:none}
+.muse-buttons{display:flex;gap:6px;flex:none}
 .muse-buttons button{padding:5px 9px;font-size:12px;white-space:nowrap}
 .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;background:var(--idle);vertical-align:1px}
 .dot.on{background:var(--ok);box-shadow:0 0 0 3px #d9f2e5}
