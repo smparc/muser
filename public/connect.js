@@ -116,6 +116,7 @@ function render() {
   renderChecks();
   renderProfiles();
   renderConversation();
+  renderMaster();
   renderEvents();
   renderPairings();
 }
@@ -202,6 +203,21 @@ function renderConversation() {
       <p class="prompt">${esc(t.prompt)}</p>
       ${r ? `<div class="reply"><span class="meta"><b>${esc(r.name)}</b> replied ${time(r.created_at)}</span><p>${esc(r.text)}</p></div>` : ''}</div>`;
   }).join('') || '<p class="empty">Tasks and actual replies appear here. Nothing is simulated.</p>';
+}
+
+function renderMaster() {
+  $('masterStatus').textContent = state.master_observer_enabled
+    ? 'The master reviews room-visible profiles and recorded replies after each pair of Muse replies. Its findings are suggestions, with the supporting messages shown below.'
+    : 'The master observer is offline. Configure the server-side OpenAI API key to enable it; Muse conversations continue without it.';
+  const latest=new Map();
+  for(const o of state.master_observations??[])if(!latest.has(o.conversation_id))latest.set(o.conversation_id,o);
+  $('masterFindings').innerHTML=(state.conversations??[]).slice(0,10).map(c=>{
+    const o=latest.get(c.id),result=o?.result;
+    const overlaps=result?.overlaps?.map(x=>`<div class="profile"><strong>${esc(x.claim)}</strong>${x.evidence.map(e=>`<p class="small"><b>${esc(e.name)}</b>: ${esc(e.text)}</p>`).join('')}</div>`).join('')||'<p class="small">No supported overlap identified yet.</p>';
+    const analyze=isHost()&&state.master_observer_enabled&&c.turn_count>=2&&o?.through_turn!==c.turn_count?`<button type="button" data-observe="${esc(c.id)}">Analyze now</button>`:'';
+    return `<div class="task"><div><strong>${esc(nameOf(c.first_id))} ↔ ${esc(nameOf(c.second_id))}</strong> <span class="meta">${c.turn_count}/${c.max_turns} replies · ${esc(c.status)}</span></div><p>${esc(c.topic)}</p>${analyze}${result?`<p><b>Master's reading:</b> ${esc(result.summary)}</p>${overlaps}${result.next_step?`<p><b>Possible next step:</b> ${esc(result.next_step)}</p>`:''}${result.open_questions?.length?`<p><b>Still to ask:</b> ${esc(result.open_questions.join(' · '))}</p>`:''}<p class="small">Observed after ${o.through_turn} replies · ${time(o.created_at)}. Interpretations are AI-generated; cited text is recorded room evidence.</p>`:'<p class="small">Waiting for the Muses to exchange replies and for the master to observe.</p>'}</div>`;
+  }).join('')||'<p class="empty">Start a Muse conversation to see grounded observations here.</p>';
+  document.querySelectorAll('[data-observe]').forEach(b=>b.onclick=()=>action(b,()=>api('/conversations/'+b.dataset.observe+'/observe','POST',{})));
 }
 
 const EVENT_TEXT = {

@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { getChatGPTUser, getChatGPTIdentityStatus } from '../../chatgpt-auth';
 import { handle } from '../../../lib/api.mjs';
+import { masterRuntime } from '../../../lib/master-runtime.mjs';
 export const dynamic = 'force-dynamic';
 // Owner identity comes only from Sites dispatch headers; agent requests authenticate with their bearer key inside handle().
 async function route(request:Request){
@@ -13,6 +14,6 @@ async function route(request:Request){
     return Response.json({error:'identity_unavailable',message:'ChatGPT returned incomplete account information. Your room remains locked until the hosting service provides your account ID.'},{status:503,headers:{'Cache-Control':'no-store'}});
   }
   const owner=path.startsWith('/api/owner/')?await getChatGPTUser():null;
-  return handle(request,env.DB,owner?{id:owner.userId,name:owner.displayName}:null);
+  return handle(request,env.DB,owner?{id:owner.userId,name:owner.displayName}:null,masterRuntime(env.DB,env));
 }
 export const GET=route;export const POST=route;export const PUT=route;export const DELETE=route;
