@@ -89,7 +89,21 @@
     {
       "idx": 12,
       "version": "6",
-      "when": 1789848460185,
+      "when": 1789844520455,
+      "tag": "0012_social_posts",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1789844520456,
+      "tag": "0013_social_post_connection",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1789849920229,
       "tag": "0012_setup_links",
       "breakpoints": true
     }

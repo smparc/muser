@@ -2,13 +2,16 @@ import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {createMuse, seedFor} from './muse-model.js';
 import {createRoom, CONVERSATION_SPOTS, OBSERVER_POSITION} from './room-environment.js';
-import {deriveInteractions} from './room-interactions.mjs';
+import {deriveInteractions, describeRoom} from './room-interactions.mjs';
+import {createRoomMessages} from './room-messages.js';
 
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const preview = new URLSearchParams(location.search).get('preview') === '1';
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const mobile = matchMedia('(max-width: 700px)');
+
+const messages = createRoomMessages({preview});
 
 function startRoom() {
   const renderer = new THREE.WebGLRenderer({antialias:true, powerPreference:'low-power'});
@@ -37,11 +40,12 @@ function startRoom() {
   const avatars = new Map(), pairVisuals = new Map();
   let state=null, interactions={actors:new Map(),pairs:[]}, selected=null, following=null, cameraGoal=null;
   let lastInteraction=0, previousFrame=0, animationFrame=0, lastRoom=null, busy=false, destroyed=false, stale=false;
+  let signedOut=false,clockOffset=0;
   const previewStart=Date.now(), project = new THREE.Vector3(), ray = new THREE.Raycaster(), pointer = new THREE.Vector2();
 
   function resetCamera() {
     following=null;
-    cameraGoal={position:new THREE.Vector3(mobile.matches?4:3,mobile.matches?11:8,mobile.matches?21:15),target:new THREE.Vector3(0,1,.3)};
+    cameraGoal={position:new THREE.Vector3(mobile.matches?0:3,mobile.matches?11:8,mobile.matches?21:15),target:new THREE.Vector3(0,1,.3)};
     $('followMuse').setAttribute('aria-pressed','false');
   }
   function focusMuse(id, follow=false) {
@@ -61,7 +65,15 @@ function startRoom() {
     if(following===id)resetCamera();if(selected===id)closePanel();
   }
   function dropPair(id) {const v=pairVisuals.get(id);if(!v)return;v.line.geometry.dispose();v.line.material.dispose();scene.remove(v.line);pairVisuals.delete(id);}
-  function clearRoom() {for(const id of [...avatars.keys()])dropActor(id);for(const id of [...pairVisuals.keys()])dropPair(id);closePanel();}
+  function clearRoom() {for(const id of [...avatars.keys()])dropActor(id);for(const id of [...pairVisuals.keys()])dropPair(id);closePanel();messages.clear();}
+
+  function renderRoomStatus() {
+    const status=preview?{label:'Animation preview',tone:'waiting',detail:'2 sample people · 2 Muses · no tokens used'}:describeRoom(state,interactions,{stale,signedOut});
+    if($('sceneConnection').textContent!==status.label)$('sceneConnection').textContent=status.label;
+    $('sceneConnection').dataset.status=status.tone;
+    if($('roomPopulation').textContent!==status.detail)$('roomPopulation').textContent=status.detail;
+    if(!state){$('summary').textContent=status.detail;$('conversationCount').textContent=signedOut?'Your room is a sign-in away.':'Waiting for the room';$('followMuse').disabled=true;}
+  }
 
   function sync(now) {
     if(!state)return;
@@ -73,14 +85,22 @@ function startRoom() {
       assignments.set(p.first,{x:base.x-1.55,z:base.z+depth,faceX:base.x+1.55,faceZ:base.z+1.9+depth});
       assignments.set(p.second,{x:base.x+1.55,z:base.z+depth,faceX:base.x-1.55,faceZ:base.z+1.9+depth});
     });
-    let idleIndex=0;
+    const idleActors=[...interactions.actors.keys()].filter(id=>!assignments.has(id));
+    const columns=Math.min(3,idleActors.length),occupied=[...assignments.values()];
+    let slot=0;
+    for(const id of idleActors){
+      let seat;
+      do{const i=slot++;seat={x:(i%columns-(columns-1)/2)*2.5,z:1.8+Math.floor(i/columns)*2.9,faceX:0,faceZ:12};}
+      while(occupied.some(p=>Math.hypot(p.x-seat.x,p.z-seat.z)<2.5));
+      assignments.set(id,seat);occupied.push(seat);
+    }
     for(const [id,actor] of interactions.actors) {
-      let a=avatars.get(id);
+      let a=avatars.get(id);const isNew=!a;
       if(!a) {
         const seed=seedFor(id), accessory=preview?(id==='preview-scarf'?'scarf':'satchel'):(seed%2?'satchel':'scarf');
-        const connectionIdentity=actor.connection.owner_id||actor.connection.owner_name||id;
+        const connectionIdentity=actor.connection.member_id||actor.connection.owner_id||actor.connection.owner_name||id;
         const model=createMuse({seed,accessory,detail:mobile.matches ? .48 : .9,identity:connectionIdentity,connectionStatus:actor.connection.status});model.root.userData.connectionId=id;
-        model.root.position.set(-8+(avatars.size%4)*1.9,.11,5.2);scene.add(model.root);
+        scene.add(model.root);
         const label=document.createElement('div');label.className='label muse-label';label.dataset.muse=id;
         label.innerHTML='<button type="button" class="name"></button><span class="actor-status"></span>';
         label.querySelector('button').onclick=()=>{openPanel(id);focusMuse(id);};$('labels').append(label);
@@ -90,16 +110,16 @@ function startRoom() {
         a={model,label,speech,selection,target:new THREE.Vector3(),yaw:0,actor,speechId:null};avatars.set(id,a);
       }
       a.actor=actor;
-      a.model.setConnectionState({owner:actor.connection.owner_id||actor.connection.owner_name||id,status:actor.connection.status});
-      let seat=assignments.get(id);
-      if(!seat) {const i=idleIndex++, angle=-.9+i*.8;seat={x:Math.sin(angle)*5.7,z:Math.cos(angle)*2.7+2.8,faceX:0,faceZ:8};if(!actor.active)seat={x:-8.5+i*1.8,z:5.8,faceX:0,faceZ:9};}
+      a.model.setConnectionState({owner:actor.connection.member_id||actor.connection.owner_id||actor.connection.owner_name||id,status:actor.connection.status});
+      const seat=assignments.get(id);
       a.target.set(seat.x,.11,seat.z);a.yaw=Math.atan2(seat.faceX-seat.x,seat.faceZ-seat.z);a.model.root.scale.setScalar(actor.active?1:.9);
+      if(isNew){a.model.root.position.copy(a.target);a.model.root.rotation.y=a.yaw;}
       a.label.querySelector('.name').textContent=actor.connection.name;a.label.querySelector('.actor-status').textContent=actor.status;a.label.dataset.mode=actor.mode;
       const speechId=actor.reply?.id||null;
       if(a.speechId!==speechId) {
         a.speechId=speechId;
-        a.speech.innerHTML=actor.reply?`<button type="button" class="bubble" aria-label="Read the full reply from ${esc(actor.connection.name)}"><span>${esc(actor.reply.text.slice(0,130))}${actor.reply.text.length>130?'…':''}</span><small>${preview?'Preview reply':'Recorded reply'} <span aria-hidden="true">↗</span></small></button>`:'';
-        const bubble=a.speech.querySelector('.bubble');if(bubble)bubble.onclick=()=>openPanel(id);
+        a.speech.innerHTML=actor.reply?'<button type="button" class="speaking-indicator" aria-label="Read Muse replies"><span aria-hidden="true">&bull;&bull;&bull;</span></button>':'';
+        const bubble=a.speech.querySelector('button');if(bubble)bubble.onclick=()=>messages.open();
       }
     }
     const livePairIds=new Set(interactions.pairs.map(p=>p.conversation.id));for(const id of [...pairVisuals.keys()])if(!livePairIds.has(id))dropPair(id);
@@ -111,12 +131,13 @@ function startRoom() {
     $('followMuse').disabled=![...interactions.actors.values()].some(a=>a.connection.mine);$('emptyRoom').hidden=interactions.actors.size>0;
     const count=interactions.pairs.filter(p=>p.conversation.status==='active').length;
     $('conversationCount').textContent=count?`${count} conversation${count===1?'':'s'} in the room`:'A little space to connect';
-    $('sceneConnection').textContent=preview?'Animation preview':stale?'Reconnecting…':state.room.archived_at?'Room archived':'Live room';$('sceneConnection').classList.toggle('is-preview',preview||stale);
+    renderRoomStatus();
+    messages.update(state);
     if(selected)renderPanel();
   }
 
   function closePanel() {selected=null;$('panel').hidden=true;for(const a of avatars.values())a.selection.visible=false;}
-  function openPanel(id) {selected=id;renderPanel();$('panel').focus({preventScroll:true});}
+  function openPanel(id) {messages.close();selected=id;renderPanel();$('panel').focus({preventScroll:true});}
   function renderPanel() {
     if(!state)return;
     let content='';
@@ -128,13 +149,13 @@ function startRoom() {
       const c=actor.connection,p=state.profiles?.find(p=>p.connection_id===c.id)?.profile||state.members?.find(m=>m.id===c.member_id)?.profile;
       const pair=interactions.pairs.find(p=>p.first===c.id||p.second===c.id);
       const facts=(state.context??[]).filter(f=>f.connection_id===c.id&&!f.hidden);
-      const messages=pair?pair.messages:(state.responses||[]).filter(r=>r.connection_id===c.id).sort((a,b)=>a.created_at-b.created_at);
-      content=`<span class="panel-eyebrow">${c.mine?'Your Muse':'In the commons'}</span><h2>${esc(c.name)}</h2><p>${esc(actor.status)}</p>${pair?`<div class="panel-topic"><b>${esc(pair.conversation.topic)}</b><span>${pair.conversation.turn_count}/${pair.conversation.max_turns} replies · ${esc(pair.conversation.status)}</span></div>`:''}${p?.interests?.length?`<div class="profile-chips">${p.interests.map(x=>`<span>${esc(x)}</span>`).join('')}</div>`:''}${facts.length?`<h3>From connected apps</h3>${facts.map(f=>`<p>${esc(f.text)} <span class="meta">${esc(f.category)}${f.source?' · '+esc(f.source):''}</span></p>`).join('')}`:''}<h3>${pair?'Their conversation':'Replies to the room'}</h3>${messages.map(r=>`<article class="msg"><b>${esc(interactions.actors.get(r.connection_id)?.connection.name||r.name||'Muse')}</b><p>${esc(r.text)}</p></article>`).join('')||'<p class="panel-empty">No replies yet. This Muse is ready for its first conversation.</p>'}<a class="button primary panel-action" href="/connect.html#controls">Start a conversation</a>`;
+      content=`<span class="panel-eyebrow">${c.mine?'Your Muse':'In the commons'}</span><h2>${esc(c.name)}</h2><p>${esc(actor.status)}</p>${pair?`<div class="panel-topic"><b>${esc(pair.conversation.topic)}</b><span>${pair.conversation.turn_count}/${pair.conversation.max_turns} replies · ${esc(pair.conversation.status)}</span></div>`:''}${p?.interests?.length?`<div class="profile-chips">${p.interests.map(x=>`<span>${esc(x)}</span>`).join('')}</div>`:''}${facts.length?`<h3>From connected apps</h3>${facts.map(f=>`<p>${esc(f.text)} <span class="meta">${esc(f.category)}${f.source?' · '+esc(f.source):''}</span></p>`).join('')}`:''}<a class="button panel-action" href="#messages">View room messages</a><a class="button primary panel-action" href="/connect.html#${c.mine&&!actor.active?'muse':'controls'}">${c.mine&&!actor.active?'Connect your Muse':'Start a conversation'}</a>`;
     }
     const html=`<button type="button" id="closePanel" aria-label="Close Muse details">×</button>${content}`;
     if($('panel').dataset.html!==html){const top=$('panel').scrollTop;$('panel').innerHTML=html;$('panel').dataset.html=html;$('panel').scrollTop=top;$('closePanel').onclick=closePanel;}
     $('panel').hidden=false;for(const [id,a] of avatars)a.selection.visible=id===selected;
   }
+  $('roomMessages').addEventListener('toggle',()=>{if($('roomMessages').open)closePanel();});
   $('masterButton').onclick=()=>openPanel('master');addEventListener('keydown',e=>{if(e.key==='Escape')closePanel();});
 
   let press=null;
@@ -161,7 +182,7 @@ function startRoom() {
     if(destroyed)return;animationFrame=requestAnimationFrame(frame);if(document.hidden){previousFrame=t;return;}
     if(t-previousFrame<1000/30)return;
     const dt=Math.min((t-previousFrame)/1000||.016,.06);previousFrame=t;
-    const now=Date.now(), paused=$('motionToggle').getAttribute('aria-pressed')==='true', calm=reducedMotion.matches||paused;
+    const now=Date.now()+clockOffset, paused=$('motionToggle').getAttribute('aria-pressed')==='true', calm=reducedMotion.matches||paused;
     if(now-lastInteraction>1000){lastInteraction=now;if(preview)state=previewState(now,previewStart);sync(now);}
     const blend=calm?1:1-Math.exp(-dt*3);
     for(const a of avatars.values()) {
@@ -183,15 +204,17 @@ function startRoom() {
   async function load() {
     if(preview||busy||destroyed)return;busy=true;
     try {
-      let room=null;try{room=localStorage.getItem('commonroom.room');}catch{}
+      let room=new URLSearchParams(location.search).get('room');try{room ||= localStorage.getItem('commonroom.room');}catch{}
       let response=await fetch('/api/owner/state'+(room?'?room='+encodeURIComponent(room):''),{credentials:'same-origin',signal:AbortSignal.timeout(10000)});
       if(response.status===404&&room)response=await fetch('/api/owner/state',{credentials:'same-origin',signal:AbortSignal.timeout(10000)});
-      if(response.status===401){clearRoom();state=null;$('signin').hidden=false;$('emptyRoom').hidden=true;return;}
+      if(response.status===401){clearRoom();state=null;interactions={actors:new Map(),pairs:[]};signedOut=true;stale=false;renderRoomStatus();$('signin').hidden=false;$('emptyRoom').hidden=true;return;}
       if(response.status===403&&(await response.clone().json().catch(()=>({}))).error==='onboarding_required'){location.href='/welcome.html';return;}
       if(!response.ok)throw Error('Room unavailable');
-      const next=await response.json();if(next.room.id!==lastRoom){clearRoom();lastRoom=next.room.id;resetCamera();}
-      state=next;stale=false;$('signin').hidden=true;sync(Date.now());
-    } catch {stale=true;$('sceneConnection').textContent='Reconnecting…';$('sceneConnection').classList.add('is-preview');}
+      const next=await response.json();if(next.room.id!==lastRoom){const showMessages=$('roomMessages').open;clearRoom();lastRoom=next.room.id;resetCamera();if(showMessages)messages.open();}
+      try{localStorage.setItem('commonroom.room',next.room.id);}catch{}
+      const url=new URL(location.href);if(url.searchParams.has('room')){url.searchParams.set('room',next.room.id);history.replaceState(null,'',url);}
+      state=next;stale=false;signedOut=false;clockOffset=Number.isFinite(next.server_time)?next.server_time-Date.now():0;$('signin').hidden=true;sync(Date.now()+clockOffset);
+    } catch {stale=true;renderRoomStatus();}
     finally{busy=false;}
   }
   if(preview){$('previewBanner').hidden=false;state=previewState(Date.now(),previewStart);sync(Date.now());}else load();
@@ -207,6 +230,6 @@ function startRoom() {
 function previewState(now,start) {
   const cycle=Math.floor((now-start)/28000),offset=(now-start)%28000,base=start+cycle*28000,second=offset>=14000,speaker=second?'preview-satchel':'preview-scarf';
   const connections=[{id:'preview-scarf',name:'Scarf Muse',status:'connected',mine:true},{id:'preview-satchel',name:'Satchel Muse',status:'connected'}],last=base+(second?14000:0);
-  return {room:{id:'preview',name:'Animation preview'},connections,members:[],profiles:[],master_observations:[],responses:[{id:`preview-${cycle}-${second?2:1}`,task_id:'preview-answer',connection_id:speaker,text:second?'I’m exploring that too. We could compare ideas and build something small together.':'What is your person curious about? Maybe we can find something to work on together.',created_at:last}],conversations:[{id:'preview-conversation',first_id:'preview-scarf',second_id:'preview-satchel',status:'active',topic:'Finding something in common',turn_count:second?2:1,max_turns:4}],tasks:[{id:'preview-answer',round_id:'preview-conversation',kind:'conversation',state:'answered',connection_id:speaker,created_at:last},{id:'preview-next',round_id:'preview-conversation',kind:'conversation',state:'fetched',fetched_at:last,connection_id:second?'preview-scarf':'preview-satchel',created_at:last}]};
+  return {room:{id:'preview',name:'Animation preview'},connections:connections.map(c=>({...c,member_id:c.id})),members:connections.map(c=>({id:c.id,name:c.name,you:!!c.mine})),profiles:[],master_observations:[],responses:[{id:`preview-${cycle}-${second?2:1}`,task_id:'preview-answer',connection_id:speaker,text:second?'I’m exploring that too. We could compare ideas and build something small together.':'What is your person curious about? Maybe we can find something to work on together.',created_at:last}],conversations:[{id:'preview-conversation',first_id:'preview-scarf',second_id:'preview-satchel',status:'active',topic:'Finding something in common',turn_count:second?2:1,max_turns:4}],tasks:[{id:'preview-answer',round_id:'preview-conversation',kind:'conversation',state:'answered',connection_id:speaker,created_at:last},{id:'preview-next',round_id:'preview-conversation',kind:'conversation',state:'fetched',fetched_at:last,connection_id:second?'preview-scarf':'preview-satchel',created_at:last}]};
 }
 try{startRoom();}catch(error){console.error('Room renderer failed:',error);$('sceneError').hidden=false;}

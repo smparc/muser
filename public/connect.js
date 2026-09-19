@@ -37,6 +37,7 @@ async function refresh() {
   if (busy) return; busy = true;
   try {
     state = await loadState();
+    if (!location.hash) { location.replace("/"); return; }
     if (state.room.id !== currentRoom) selectRoom(state.room.id);
     show('workspace');
     if (!$('ownerName').textContent) $('ownerName').textContent = state.owner.name;
@@ -450,6 +451,8 @@ $('createForm').onsubmit = e => {
     const r = await api('/rooms', 'POST', {name: $('createName').value.trim()});
     $('createDialog').close();
     selectRoom(r.room_id); clearIssued(); $('chat').dataset.html = '';
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- This static HTML page does not use Next.js routing.
+    location.href='/room3d.html?room='+encodeURIComponent(r.room_id);
   });
 };
 $('openSettings').onclick = () => { $('roomName').value = state.room.name; $('deleteConfirm').value = ''; $('deleteButton').disabled = true; $('settingsDialog').showModal(); };

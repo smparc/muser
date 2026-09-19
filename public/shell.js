@@ -2,12 +2,12 @@
 // Shared navigation for the dashboard, profile and interactive room.
 (() => {
   const icon = name => `<svg class="ui-icon" aria-hidden="true"><use href="/commons-icons.svg#${name}"></use></svg>`;
-  const page = document.body.dataset.page;
-  const roomLink = view => `/connect.html${view === 'home' ? '' : '#' + view}`;
-  const link = (view, label, symbol) => `<a href="${view === 'profile' ? '/profile.html' : roomLink(view)}" data-nav="${view}" ${view === (page === 'profile' ? 'profile' : 'home') ? 'class="active" aria-current="page"' : ''}>${icon(symbol)}<span>${label}</span></a>`;
+  const page = document.body.dataset.page === 'scene' ? 'home' : document.body.dataset.page;
+  const roomLink = view => view === 'home' ? '/' : view === 'messages' ? '/room3d.html#messages' : `/connect.html#${view}`;
+  const link = (view, label, symbol) => `<a href="${view === 'profile' ? '/profile.html' : view === 'social' ? '/social.html' : roomLink(view)}" data-nav="${view}" ${view === page ? 'class="active" aria-current="page"' : ''}>${icon(symbol)}<span>${label}</span></a>`;
   const rail = document.createElement('aside');
   rail.className = 'app-rail';
-  rail.innerHTML = `<a class="brand-mark" href="/connect.html" aria-label="Commonroom home">${icon('mark')}</a><nav aria-label="Main navigation">${link('home', 'Home', 'home')}${link('people', 'People', 'people')}${link('spaces', 'Spaces', 'spaces')}${link('messages', 'Messages', 'message')}${link('profile', 'Profile', 'profile')}</nav><div class="rail-bottom">${link('settings', 'Settings', 'settings')}</div>`;
+  rail.innerHTML = `<a class="brand-mark" href="/" aria-label="Commonroom home">${icon('mark')}</a><nav aria-label="Main navigation">${link('home', 'Home', 'home')}${link('social', 'Social', 'globe')}${link('people', 'People', 'people')}${link('spaces', 'Spaces', 'spaces')}${link('messages', 'Messages', 'message')}${link('profile', 'Profile', 'profile')}</nav><div class="rail-bottom">${link('settings', 'Settings', 'settings')}</div>`;
   document.body.prepend(rail);
   const header = document.querySelector('.topbar');
   if (header) {
@@ -15,7 +15,7 @@
     const account = header.querySelector('.who');
     const picker = header.querySelector('#roomSwitch');
     header.replaceChildren();
-    header.innerHTML = `<a class="brand" href="/connect.html">commonroom</a><nav class="top-tabs" aria-label="Explore">${link('home', 'The commons', 'home')}${link('people', 'Discover', 'people')}${link('projects', 'Projects', 'folder')}</nav><div class="header-account"><span class="app-tag">A place to belong</span></div>`;
+    header.innerHTML = `<a class="brand" href="/">commonroom</a><nav class="top-tabs" aria-label="Explore">${link('home', 'The commons', 'home')}${link('social', 'Social', 'globe')}${link('people', 'Discover', 'people')}${link('projects', 'Projects', 'folder')}</nav><div class="header-account"><span class="app-tag">A place to belong</span></div>`;
     const accountArea = header.querySelector('.header-account');
     if (account) accountArea.append(account);
     else accountArea.insertAdjacentHTML('beforeend', '<a class="account-avatar" href="/profile.html" aria-label="Your profile">' + icon('profile') + '</a>');
