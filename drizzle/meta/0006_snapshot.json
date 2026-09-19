@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "8d81b85f-f93f-41c5-af5a-afef14815ade",
-  "prevId": "a8cf4676-8fc1-41bd-901a-ff712cedde12",
+  "id": "7a59b6ad-7e52-4c39-940f-3859b020c690",
+  "prevId": "8d81b85f-f93f-41c5-af5a-afef14815ade",
   "tables": {
     "connections": {
       "name": "connections",
@@ -434,6 +434,37 @@
           "onUpdate": "no action"
         }
       },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "owner_profiles": {
+      "name": "owner_profiles",
+      "columns": {
+        "owner_id": {
+          "name": "owner_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "profile_json": {
+          "name": "profile_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
@@ -939,6 +970,14 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "profile_shared": {
+          "name": "profile_shared",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
         }
       },
       "indexes": {
