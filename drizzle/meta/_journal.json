@@ -15,6 +15,13 @@
       "when": 1789792757663,
       "tag": "0001_auto_approve",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789794172625,
+      "tag": "0002_connector_keys",
+      "breakpoints": true
     }
   ]
 }
