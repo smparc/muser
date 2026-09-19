@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+  <symbol id="mark" viewBox="0 0 40 40"><path d="M5 21C13 3 16 4 12 20l-3 12C26 1 28 2 22 22l-3 10c14-24 18-19 13-7l-3 7" fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="home" viewBox="0 0 24 24"><path d="m3 10 9-8 9 8v11h-6v-7H9v7H3Z" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+  <symbol id="people" viewBox="0 0 24 24"><circle cx="9" cy="7" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3M16 4a3 3 0 0 1 0 6m3 11v-3a6 6 0 0 0-2-4"/></symbol>
+  <symbol id="spaces" viewBox="0 0 24 24"><path d="m12 2 9 5v10l-9 5-9-5V7Zm0 10 9-5M12 12 3 7m9 5v10M7.5 4.5l9 5v10"/></symbol>
+  <symbol id="message" viewBox="0 0 24 24"><path d="M21 4H3v17l5-4h13Z"/></symbol>
+  <symbol id="profile" viewBox="0 0 24 24"><circle cx="12" cy="6" r="4"/><path d="M3 22v-2a9 9 0 0 1 18 0v2Z"/></symbol>
+  <symbol id="settings" viewBox="0 0 24 24"><path d="m9 2-1 3-3 1-3 3 2 3-1 4 3 2 2 3 4-1 4 1 2-3 3-2-1-4 2-3-3-3-3-1-1-3Z"/><circle cx="12" cy="12" r="4"/></symbol>
+  <symbol id="folder" viewBox="0 0 24 24"><path d="M3 5h7l2 3h9v13H3Zm0 4h18"/></symbol>
+  <symbol id="arrow" viewBox="0 0 24 24"><path d="M4 12h16m-6-6 6 6-6 6"/></symbol>
+  <symbol id="map" viewBox="0 0 24 24"><path d="m3 5 6-3 6 3 6-3v17l-6 3-6-3-6 3Zm6-3v17m6-14v17"/></symbol>
+  <symbol id="follow" viewBox="0 0 24 24"><circle cx="12" cy="7" r="3"/><path d="M6 21v-3a6 6 0 0 1 12 0v3M3 8V4h4m10 0h4v4M3 16v4h2m14 0h2v-4"/></symbol>
+  <symbol id="more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol>
+  <symbol id="close" viewBox="0 0 24 24"><path d="m6 6 12 12M6 18 18 6"/></symbol>
+  <symbol id="spark" viewBox="0 0 24 24"><path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5Z"/></symbol>
+</svg>

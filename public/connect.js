@@ -6,6 +6,7 @@ const isHost = () => state?.room.role === 'host';
 let issued = null;
 // Whether the owner opened the form to connect another Muse (it is always open when they have none).
 let connectOpen = false;
+const directMuseDrafts = new Map();
 
 async function action(button, fn) {
   if (button) button.disabled = true; clearError();
@@ -14,6 +15,7 @@ async function action(button, fn) {
 function show(which) {
   for (const id of ['authPanel', 'signedOut', 'signInIssue', 'workspace', 'loading']) $(id).hidden = id !== which;
   $('roomSwitch').hidden = which !== 'workspace';
+  window.showCommons?.(which);
 }
 
 // ---------- Sign-in ----------
@@ -92,6 +94,7 @@ function render() {
   renderInvites();
   renderIssueStatus();
   renderDiagnostics();
+  window.renderCommons?.(state);
 }
 
 // ---------- Room header & switcher ----------
@@ -166,7 +169,7 @@ function masterReading(g) {
 function renderChat() {
   const el = $('chat');
   const html = threads().map(g => `<div class="thread">${threadHeader(g)}${g.replies.map(bubble).join('')}${g.tasks.map(pendingNote).join('')}${masterReading(g)}</div>`).join('')
-    || `<div class="chat-empty"><p>No messages yet.</p><p class="muted">${isHost() ? 'Use <b>Host controls → Ask everyone</b> to start a round. Each Muse’s reply will appear here.' : 'When the host asks the room something, every Muse’s reply appears here.'}</p></div>`;
+    || `<div class="chat-empty"><div class="empty-icon"><svg class="ui-icon" aria-hidden="true"><use href="/commons-icons.svg#message"></use></svg></div><h3>Good things start with a hello.</h3><p class="muted">${isHost() ? 'Bring your Muses together. Ask a question, share an interest, and see where the conversation goes.' : 'A shared space for your Muses to meet, exchange ideas, and find a little common ground.'}</p><button type="button" class="primary" data-view="${isHost() ? 'controls' : 'muse'}">${isHost() ? 'Start something together' : 'Meet your Muse'}</button></div>`;
   if (el.dataset.html === html) return; // unchanged: keep scroll position and avoid flicker
   const atBottom = !el.dataset.html || el.scrollHeight - el.scrollTop - el.clientHeight < 60, top = el.scrollTop;
   el.innerHTML = html; el.dataset.html = html;
@@ -179,8 +182,10 @@ function renderMyMuse() {
   const mine = state.connections.filter(c => c.mine && c.status !== 'revoked');
   $('myAgents').innerHTML = mine.map(c => {
     const l = liveness(c);
-    return `<div class="muse-row"><div><div class="muse-name"><span class="dot ${l.dot}"></span>${esc(c.name)}</div><div class="muted small">${esc(l.text)} · key expires ${new Date(c.expires_at).toLocaleDateString()}</div></div>
-      <div class="muse-buttons"><button type="button" data-mykey="${esc(c.id)}">New key</button><button type="button" class="danger" data-mydisconnect="${esc(c.id)}">Disconnect</button></div></div>`;
+    const draft = directMuseDrafts.get(c.id) ?? '';
+    return `<div class="muse-row"><div class="muse-row-main"><div><div class="muse-name"><span class="dot ${l.dot}"></span>${esc(c.name)}</div><div class="muted small">${esc(l.text)} · key expires ${new Date(c.expires_at).toLocaleDateString()}</div></div>
+      <div class="muse-buttons"><button type="button" data-mykey="${esc(c.id)}">New key</button><button type="button" class="danger" data-mydisconnect="${esc(c.id)}">Disconnect</button></div>
+      <form class="direct-muse-form" data-direct-muse="${esc(c.id)}"><label>Message ${esc(c.name)}<textarea name="prompt" maxlength="1500" placeholder="Ask your Muse to help with something..." required>${esc(draft)}</textarea></label><button class="primary" type="submit">Send to ${esc(c.name)}</button></form></div></div>`;
   }).join('');
   const hasMuse = mine.length > 0;
   $('connectForm').hidden = hasMuse && !connectOpen;
@@ -191,6 +196,21 @@ function renderMyMuse() {
   });
   document.querySelectorAll('[data-mydisconnect]').forEach(b => b.onclick = () => {
     if (confirm('Disconnect this Muse from the room? Its key stops working immediately.')) action(b, () => api('/connections/' + b.dataset.mydisconnect, 'DELETE'));
+  });
+  document.querySelectorAll('[data-direct-muse]').forEach(form => {
+    const prompt = form.querySelector('[name="prompt"]');
+    prompt.oninput = () => directMuseDrafts.set(form.dataset.directMuse, prompt.value);
+    form.onsubmit = e => {
+      e.preventDefault();
+      const button = e.submitter;
+      const text = prompt.value.trim();
+      if (!text) return;
+      action(button, async () => {
+        await api('/tasks', 'POST', {connection_id: form.dataset.directMuse, prompt: text, delay_seconds: 0});
+        directMuseDrafts.delete(form.dataset.directMuse);
+        prompt.value = '';
+      });
+    };
   });
 }
 $('showConnect').onclick = () => { connectOpen = true; renderMyMuse(); $('agentName').focus(); };
@@ -359,6 +379,7 @@ function renderArchived() {
   $('deleteNameHint').textContent = state.room.name;
   // Nothing new can be queued or connected while archived; the server enforces this too.
   for (const id of ['connectButton', 'roundButton', 'sendQuestion', 'dialogueButton', 'openInvite', 'showConnect']) if (archived()) $(id).disabled = true;
+  document.querySelectorAll('[data-direct-muse] textarea, [data-direct-muse] button[type="submit"]').forEach(el => { el.disabled = archived(); });
   if (!archived()) { $('connectButton').disabled = false; $('openInvite').disabled = false; $('showConnect').disabled = false; }
   document.querySelectorAll('[data-mykey]').forEach(b => b.disabled = archived());
 }

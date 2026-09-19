@@ -32,7 +32,14 @@ async function loadState() {
   catch (err) { if (err.code !== 'room_not_found') throw err; selectRoom(null); return api('/state'); }
 }
 
-function showError(err) { $('error').hidden = false; $('error').textContent = err.message; }
+function showError(err) {
+  const error = $('error');
+  const dialog = [...document.querySelectorAll('dialog[open]')].at(-1);
+  // Keep feedback beside the form when an action is inside a modal panel.
+  if (dialog) dialog.querySelector('.dialog-head')?.after(error);
+  else document.querySelector('main').prepend(error);
+  error.hidden = false; error.textContent = err.message;
+}
 function clearError() { $('error').hidden = true; }
 async function copy(button, text) {
   const label = button.textContent;
