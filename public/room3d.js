@@ -148,7 +148,8 @@ function startRoom() {
       const actor=interactions.actors.get(selected);if(!actor){closePanel();return;}
       const c=actor.connection,p=state.profiles?.find(p=>p.connection_id===c.id)?.profile||state.members?.find(m=>m.id===c.member_id)?.profile;
       const pair=interactions.pairs.find(p=>p.first===c.id||p.second===c.id);
-      content=`<span class="panel-eyebrow">${c.mine?'Your Muse':'In the commons'}</span><h2>${esc(c.name)}</h2><p>${esc(actor.status)}</p>${pair?`<div class="panel-topic"><b>${esc(pair.conversation.topic)}</b><span>${pair.conversation.turn_count}/${pair.conversation.max_turns} replies · ${esc(pair.conversation.status)}</span></div>`:''}${p?.interests?.length?`<div class="profile-chips">${p.interests.map(x=>`<span>${esc(x)}</span>`).join('')}</div>`:''}<a class="button panel-action" href="#messages">View room messages</a><a class="button primary panel-action" href="/connect.html#${c.mine&&!actor.active?'muse':'controls'}">${c.mine&&!actor.active?'Connect your Muse':'Start a conversation'}</a>`;
+      const facts=(state.context??[]).filter(f=>f.connection_id===c.id&&!f.hidden);
+      content=`<span class="panel-eyebrow">${c.mine?'Your Muse':'In the commons'}</span><h2>${esc(c.name)}</h2><p>${esc(actor.status)}</p>${pair?`<div class="panel-topic"><b>${esc(pair.conversation.topic)}</b><span>${pair.conversation.turn_count}/${pair.conversation.max_turns} replies · ${esc(pair.conversation.status)}</span></div>`:''}${p?.interests?.length?`<div class="profile-chips">${p.interests.map(x=>`<span>${esc(x)}</span>`).join('')}</div>`:''}${facts.length?`<h3>From connected apps</h3>${facts.map(f=>`<p>${esc(f.text)} <span class="meta">${esc(f.category)}${f.source?' · '+esc(f.source):''}</span></p>`).join('')}`:''}<a class="button panel-action" href="#messages">View room messages</a><a class="button primary panel-action" href="/connect.html#${c.mine&&!actor.active?'muse':'controls'}">${c.mine&&!actor.active?'Connect your Muse':'Start a conversation'}</a>`;
     }
     const html=`<button type="button" id="closePanel" aria-label="Close Muse details">×</button>${content}`;
     if($('panel').dataset.html!==html){const top=$('panel').scrollTop;$('panel').innerHTML=html;$('panel').dataset.html=html;$('panel').scrollTop=top;$('closePanel').onclick=closePanel;}
@@ -207,6 +208,7 @@ function startRoom() {
       let response=await fetch('/api/owner/state'+(room?'?room='+encodeURIComponent(room):''),{credentials:'same-origin',signal:AbortSignal.timeout(10000)});
       if(response.status===404&&room)response=await fetch('/api/owner/state',{credentials:'same-origin',signal:AbortSignal.timeout(10000)});
       if(response.status===401){clearRoom();state=null;interactions={actors:new Map(),pairs:[]};signedOut=true;stale=false;renderRoomStatus();$('signin').hidden=false;$('emptyRoom').hidden=true;return;}
+      if(response.status===403&&(await response.clone().json().catch(()=>({}))).error==='onboarding_required'){location.href='/welcome.html';return;}
       if(!response.ok)throw Error('Room unavailable');
       const next=await response.json();if(next.room.id!==lastRoom){const showMessages=$('roomMessages').open;clearRoom();lastRoom=next.room.id;resetCamera();if(showMessages)messages.open();}
       try{localStorage.setItem('commonroom.room',next.room.id);}catch{}

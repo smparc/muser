@@ -1,7 +1,8 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {handle} from '../lib/api.mjs';import {sqliteD1,origin} from './helpers.mjs';
+import {handle} from '../lib/api.mjs';import {onboard,sqliteD1,origin} from './helpers.mjs';
 const h=sqliteD1();
 const host={id:'owner-host',name:'Hayden'},guest={id:'owner-guest',name:'Sam'},stranger={id:'owner-stranger',name:'Eve'};
+onboard(h.sql,[host,guest,stranger]);
 async function req(path,method='GET',body,owner,token){const headers=new Headers({Origin:origin});if(body!==undefined)headers.set('Content-Type','application/json');if(token)headers.set('Authorization','Bearer '+token);const r=await handle(new Request(origin+path,{method,headers,body:body===undefined?undefined:JSON.stringify(body)}),h.db,owner??null);return {status:r.status,body:await r.json()};}
 const state=(owner,room)=>req('/api/owner/state'+(room?'?room='+room:''),'GET',undefined,owner).then(r=>r.body);
 let room,code,inviteId,guestKey,guestCid,hostKey;
@@ -60,7 +61,7 @@ test('permissions: members manage only their own connections; host moderates',as
 });
 
 test('invite limits: use cap and revocation',async()=>{
- const other={id:'owner-3',name:'Third'},fourth={id:'owner-4',name:'Fourth'};
+ const other={id:'owner-3',name:'Third'},fourth={id:'owner-4',name:'Fourth'};onboard(h.sql,[other,fourth]);
  assert.equal((await req('/api/owner/rooms/join','POST',{code},other)).status,201);
  assert.equal((await req('/api/owner/rooms/join','POST',{code},fourth)).status,409);
  const r2=(await req('/api/owner/rooms/'+room+'/invites','POST',{},host)).body;
@@ -73,7 +74,7 @@ test('invite limits: use cap and revocation',async()=>{
 });
 
 test('joining with a Muse name returns a working key for that room in one step',async()=>{
- const newbie={id:'owner-newbie',name:'Newbie'};
+ const newbie={id:'owner-newbie',name:'Newbie'};onboard(h.sql,[newbie]);
  const inv=(await req('/api/owner/rooms/'+room+'/invites','POST',{},host)).body;
  const j=await req('/api/owner/rooms/join','POST',{code:inv.code,agent_name:"Newbie's Muse"},newbie);
  assert.equal(j.status,201);assert.match(j.body.connection.access_token,/^cr_[a-f0-9]{64}$/);assert.equal(j.body.connection.room_id,room);
@@ -105,7 +106,7 @@ test('removing a member revokes their agents; members can leave; host cannot',as
 });
 
 test('owners can create extra rooms they host, each fully separate',async()=>{
- const h2=sqliteD1();const owner={id:'multi-host',name:'Maya'},friend={id:'multi-friend',name:'Fred'};
+ const h2=sqliteD1();const owner={id:'multi-host',name:'Maya'},friend={id:'multi-friend',name:'Fred'};onboard(h2.sql,[owner,friend]);
  const call=async(path,method='GET',body,who)=>{const headers=new Headers({Origin:origin});if(body!==undefined)headers.set('Content-Type','application/json');const r=await handle(new Request(origin+path,{method,headers,body:body===undefined?undefined:JSON.stringify(body)}),h2.db,who);return {status:r.status,body:await r.json()};};
  const home=(await call('/api/owner/state','GET',undefined,owner)).body.room.id;
  assert.equal((await call('/api/owner/rooms','POST',{name:''},owner)).status,422);
@@ -126,4 +127,24 @@ test('owners can create extra rooms they host, each fully separate',async()=>{
  for(let i=2;i<10;i++)assert.equal((await call('/api/owner/rooms','POST',{name:'Room '+i},owner)).status,201);
  assert.equal((await call('/api/owner/rooms','POST',{name:'One too many'},owner)).status,429);
  h2.cleanup();
+});
+
+test('leaving a room stops Muse↔Muse conversations the member was part of',async()=>{
+ const h2=sqliteD1();const hostO={id:'conv-host',name:'Hal'},memberO={id:'conv-member',name:'Mia'};onboard(h2.sql,[hostO,memberO]);
+ const call=async(path,method='GET',body,who,token)=>{const headers=new Headers({Origin:origin});if(body!==undefined)headers.set('Content-Type','application/json');if(token)headers.set('Authorization','Bearer '+token);const r=await handle(new Request(origin+path,{method,headers,body:body===undefined?undefined:JSON.stringify(body)}),h2.db,who??null);return {status:r.status,body:await r.json()};};
+ try{
+  const room=(await call('/api/owner/state','GET',undefined,hostO)).body.room.id;
+  const a=(await call('/api/owner/connections','POST',{agent_name:'Hal Muse'},hostO)).body;
+  const code=(await call('/api/owner/rooms/'+room+'/invites','POST',{},hostO)).body.code;
+  const b=(await call('/api/owner/rooms/join','POST',{code,agent_name:'Mia Muse'},memberO)).body.connection;
+  // The member's Muse opens; the host's Muse is then waiting for a reply that will never come once she leaves.
+  const conv=(await call('/api/owner/conversations','POST',{first_connection_id:b.connection_id,second_connection_id:a.connection_id,topic:'Robots',max_turns:4},hostO)).body;
+  const t=(await call('/api/v1/me/tasks','GET',undefined,null,b.access_token)).body.tasks.find(x=>x.kind==='conversation');
+  await call('/api/v1/tasks/'+t.id+'/response','POST',{client_message_id:'c1',nonce:t.nonce,text:'Hi Hal Muse!'},null,b.access_token);
+  assert.equal((await call('/api/v1/me/tasks','GET',undefined,null,a.access_token)).body.tasks.filter(x=>x.kind==='conversation').length,1);
+  const me=(await call('/api/owner/state?room='+room,'GET',undefined,memberO)).body.room.member_id;
+  assert.equal((await call('/api/owner/rooms/'+room+'/members/'+me,'DELETE',undefined,memberO)).body.status,'left');
+  assert.equal(h2.sql.prepare('SELECT status FROM conversations WHERE id=?').get(conv.conversation_id).status,'stopped');
+  assert.equal((await call('/api/v1/me/tasks','GET',undefined,null,a.access_token)).body.tasks.filter(x=>x.kind==='conversation').length,0);
+ }finally{h2.cleanup();}
 });

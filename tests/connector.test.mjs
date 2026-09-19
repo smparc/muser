@@ -1,7 +1,8 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {handle} from '../lib/api.mjs';import {openapiSpec} from '../lib/openapi.mjs';import {sqliteD1,origin} from './helpers.mjs';
+import {handle} from '../lib/api.mjs';import {openapiSpec} from '../lib/openapi.mjs';import {onboard,sqliteD1,origin} from './helpers.mjs';
 const h=sqliteD1();
 const hostA={id:'owner-host',name:'Host'},hostB={id:'owner-other',name:'Other host'};
+onboard(h.sql,[hostA,hostB]);
 async function req(path,method='GET',body,opts={}){const headers=new Headers();if(body!==undefined)headers.set('Content-Type','application/json');if(opts.owner)headers.set('Origin',opts.origin??origin);if(opts.token)headers.set('Authorization',opts.auth??'Bearer '+opts.token);else if(opts.auth)headers.set('Authorization',opts.auth);const r=await handle(new Request(origin+path,{method,headers,body:body===undefined?undefined:JSON.stringify(body)}),h.db,opts.owner??null);return {status:r.status,headers:r.headers,body:await r.json()};}
 const connect=(owner=hostA,name="Hayden's Muse")=>req('/api/owner/connections','POST',{agent_name:name},{owner});
 const state=(owner=hostA)=>req('/api/owner/state','GET',undefined,{owner}).then(r=>r.body);
@@ -108,7 +109,8 @@ test('room rounds queue one task per active connection',async()=>{
  assert.match(r.body.prompt,/useful connection/);
  assert.equal(h.sql.prepare("SELECT count(*) AS n FROM tasks WHERE round_id=? AND kind='round'").get(r.body.round_id).n,2);
  assert.equal((await req('/api/owner/rounds','POST',{delay_seconds:99999},{owner:hostA})).status,422);
- assert.equal((await req('/api/owner/rounds','POST',{},{owner:{id:'owner-empty',name:'Empty'}})).status,409);
+ const empty={id:'owner-empty',name:'Empty'};onboard(h.sql,[empty]);
+ assert.equal((await req('/api/owner/rounds','POST',{},{owner:empty})).status,409);
 });
 
 test('key replacement kills the old key and preserves the connection',async()=>{
@@ -152,7 +154,7 @@ test('connector spec exposes only agent operations',()=>{
  assert.equal(spec.servers[0].url,'https://commonroom.example');
  assert.deepEqual(spec.components.securitySchemes.bearerAuth,{...spec.components.securitySchemes.bearerAuth,type:'http',scheme:'bearer'});
  const ops=Object.values(spec.paths).flatMap(p=>Object.values(p).map(o=>o.operationId)).sort();
- assert.deepEqual(ops,['get_connection','get_room','get_tasks','respond_to_task','update_profile']);
+ assert.deepEqual(ops,['get_connection','get_context','get_room','get_tasks','respond_to_task','set_context','update_profile']);
  assert.ok(Object.keys(spec.paths).every(p=>p.startsWith('/api/v1/')&&!p.includes('pairings')));
  h.cleanup();
 });

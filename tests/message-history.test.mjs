@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {handle} from '../lib/api.mjs';
-import {sqliteD1,origin} from './helpers.mjs';
+import {sqliteD1,origin,onboard} from './helpers.mjs';
 
 test('room history pages through timestamp ties and keeps latest replies in state',async()=>{
  const h=sqliteD1(),owner={id:'history-owner',name:'History'},stranger={id:'other-owner',name:'Other'};
+ onboard(h.sql,[owner,stranger]);
  const request=async(path,who=owner,method='GET',body)=>{
   const response=await handle(new Request(origin+path,{method,headers:{Origin:origin,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined}),h.db,who);
   return {status:response.status,...await response.json()};

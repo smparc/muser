@@ -1,6 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {handle} from '../lib/api.mjs';import {handleMcp} from '../lib/mcp.mjs';import {sqliteD1,origin} from './helpers.mjs';
+import {handle} from '../lib/api.mjs';import {handleMcp} from '../lib/mcp.mjs';import {onboard,sqliteD1,origin} from './helpers.mjs';
 const h=sqliteD1(),owner={id:'owner-mcp',name:'Host'},other={id:'owner-mcp-2',name:'Other'};
+onboard(h.sql,[owner,other]);
 const ownerCall=async(path,method,body,who=owner)=>(await handle(new Request(origin+path,{method,headers:{'Content-Type':'application/json',Origin:origin},body:body===undefined?undefined:JSON.stringify(body)}),h.db,who)).json();
 let id=0;
 async function mcp(token,method,params,headers={}){const r=await handleMcp(new Request(origin+'/mcp',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json, text/event-stream',...(token?{Authorization:'Bearer '+token}:{}),...headers},body:JSON.stringify({jsonrpc:'2.0',id:++id,method,params})}),h.db);return {status:r.status,body:r.status===202?null:await r.json()};}
@@ -16,13 +17,13 @@ test('MCP requires the Commonroom bearer key',async()=>{
  const get=await handleMcp(new Request(origin+'/mcp',{headers:{Authorization:'Bearer '+key}}),h.db);assert.equal(get.status,405);
 });
 
-test('initialize and tools/list expose the five agent tools',async()=>{
+test('initialize and tools/list expose the seven agent tools',async()=>{
  const init=await mcp(key,'initialize',{protocolVersion:'2025-06-18',capabilities:{},clientInfo:{name:'t',version:'1'}});
  assert.equal(init.status,200);assert.equal(init.body.result.protocolVersion,'2025-06-18');assert.ok(init.body.result.capabilities.tools);
  const note=await handleMcp(new Request(origin+'/mcp',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+key},body:JSON.stringify({jsonrpc:'2.0',method:'notifications/initialized'})}),h.db);
  assert.equal(note.status,202);
  const tools=(await mcp(key,'tools/list')).body.result.tools.map(t=>t.name).sort();
- assert.deepEqual(tools,['get_connection','get_room','get_tasks','respond_to_task','update_profile']);
+ assert.deepEqual(tools,['get_connection','get_context','get_room','get_tasks','respond_to_task','set_context','update_profile']);
  assert.equal((await mcp(key,'no/such')).body.error.code,-32601);
 });
 

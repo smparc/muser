@@ -1,0 +1,31 @@
+/* Welcome flow and the source picker (also used on the Profile page). Builds on connect.css tokens. */
+.welcome{max-width:720px}
+.steps{display:flex;gap:6px;list-style:none;padding:0;margin:0 0 18px;counter-reset:step;flex-wrap:wrap}
+.steps li{flex:1 1 120px;counter-increment:step;font-size:12.5px;font-weight:600;color:var(--muted);padding:8px 0 0;border-top:3px solid var(--line)}
+.steps li::before{content:counter(step) ". "}
+.steps li.done{color:var(--text);border-color:#c9b9ef}
+.steps li.current{color:var(--brand);border-color:var(--brand)}
+.card.wizard{padding:24px}
+.wizard h1{margin-bottom:6px}
+.wizard-actions{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:18px;flex-wrap:wrap}
+.wizard-actions>:last-child{margin-left:auto}
+
+.source-picker{display:grid;gap:12px;margin:16px 0}
+.source-group{border:1px solid var(--line);border-radius:10px;padding:6px 12px 10px;margin:0}
+.source-group legend{font-size:12px;font-weight:700;color:var(--muted);padding:0 4px;text-transform:uppercase;letter-spacing:.4px}
+label.source{display:flex;gap:10px;align-items:flex-start;margin:8px 0 0;font-weight:500;color:var(--text);cursor:pointer}
+label.source input{width:auto;margin:3px 0 0;flex:none}
+label.source>span{display:grid;gap:2px}
+label.source b{font-size:14px}
+
+.consent{background:var(--brand-soft);border:1px solid #d9ccf5;border-radius:10px;padding:4px 12px;margin:14px 0 8px}
+.consent .toggle span{line-height:1.45}
+.consent.inactive{opacity:.55}
+.authorized-summary{background:#faf8ff;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:12px 0;font-size:13.5px}
+.authorized-summary ul{margin:6px 0;padding-left:18px}
+.authorized-summary li{margin:3px 0}
+textarea.setup-message{min-height:220px;font:12.5px/1.5 ui-monospace,monospace}
+table.setup{border-collapse:collapse;width:100%;font-size:13px;margin:8px 0}
+table.setup th{text-align:left;color:var(--muted);font-weight:600;padding:4px 10px 4px 0;white-space:nowrap}
+table.setup td{padding:4px 0;word-break:break-all}
+@media (max-width:560px){.card.wizard{padding:16px}}

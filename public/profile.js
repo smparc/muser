@@ -1,6 +1,6 @@
 'use strict';
 // Profile page: the person's own profile and where it is shared. Helpers live in common.js.
-let state = null, ownerName = '';
+let state = null, ownerName = '', onboarding = null;
 
 const readForm = () => ({
   interests: $('profileInterests').value.split(',').map(x => x.trim()).filter(Boolean),
@@ -38,6 +38,31 @@ async function load() {
   render();
 }
 
+// ---------- What your Muse may use ----------
+async function loadSources() {
+  onboarding = await api('/onboarding');
+  renderSourcePicker($('sourcePicker'), onboarding.catalog, onboarding.sources);
+  $('sourcePicker').onchange = syncConsent; syncConsent();
+  $('sourcesStatus').textContent = onboarding.authorized_at ? 'Last changed ' + ago(onboarding.authorized_at) : '';
+}
+// Re-authorization is needed whenever the selection gains an app; removing apps needs no consent.
+function syncConsent() {
+  const picked = pickedSources($('sourcePicker')), adding = picked.some(s => !onboarding.sources.includes(s));
+  $('consentBox').hidden = !adding; if (!adding) $('consent').checked = false;
+}
+$('sourcesSave').onclick = async () => {
+  const sources = pickedSources($('sourcePicker')), adding = sources.some(s => !onboarding.sources.includes(s));
+  if (adding && !$('consent').checked) return showError(new Error('Tick the authorization box to add apps.'));
+  const removing = onboarding.sources.filter(s => !sources.includes(s));
+  if (removing.length && !confirm('Turning off ' + removing.map(id => onboarding.catalog.find(c => c.id === id).label).join(', ') + ' deletes every fact your Muses shared from it, in every room. Continue?')) return;
+  $('sourcesSave').disabled = true; clearError();
+  try {
+    const r = await api('/sources', 'PUT', sources.length ? {sources, authorized: true} : {sources});
+    await loadSources();
+    $('sourcesStatus').textContent = 'Saved' + (r.removed.length ? ' · facts from removed apps deleted' : '') + (r.sync_tasks_queued ? ` · asked ${r.sync_tasks_queued} Muse${r.sync_tasks_queued === 1 ? '' : 's'} to sync` : '');
+  } catch (err) { showError(err); } finally { $('sourcesSave').disabled = false; }
+};
+
 $('profileForm').oninput = () => { $('profileForm').dataset.dirty = '1'; renderPreview(); };
 $('profileForm').onsubmit = async e => {
   e.preventDefault();
@@ -57,7 +82,7 @@ $('profileForm').onsubmit = async e => {
 (async () => {
   await initHeader();
   try {
-    await load();
+    await load(); await loadSources();
     $('loading').hidden = true; $('profileWorkspace').hidden = false;
   } catch (err) {
     $('loading').hidden = true;

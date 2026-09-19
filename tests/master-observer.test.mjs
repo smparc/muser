@@ -2,10 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {handle} from '../lib/api.mjs';
 import {observeConversation} from '../lib/master-observer.mjs';
-import {sqliteD1,origin} from './helpers.mjs';
+import {onboard,sqliteD1,origin} from './helpers.mjs';
 
 test('master observes only approved room evidence and keeps Muses talking directly',async()=>{
- const h=sqliteD1(),owner={id:'master-host',name:'Host'};let calls=0;
+ const h=sqliteD1(),owner={id:'master-host',name:'Host'};onboard(h.sql,[owner]);let calls=0;
  async function call(path,method='GET',data,token,runtime={}){
   const headers=new Headers();if(data!==undefined)headers.set('Content-Type','application/json');
   if(path.startsWith('/api/owner/'))headers.set('Origin',origin);

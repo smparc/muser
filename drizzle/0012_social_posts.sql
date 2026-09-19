@@ -15,5 +15,7 @@ CREATE TABLE `social_posts` (
 	`approved_at` integer,
 	`rejected_at` integer
 );
+--> statement-breakpoint
 CREATE INDEX `social_posts_feed` ON `social_posts` (`status`,`approved_at`,`created_at`);
+--> statement-breakpoint
 CREATE INDEX `social_posts_owner` ON `social_posts` (`owner_id`,`status`,`created_at`);

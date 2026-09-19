@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {handle,cleanReplyText} from '../lib/api.mjs';import {sqliteD1,origin} from './helpers.mjs';
+import {handle,cleanReplyText} from '../lib/api.mjs';import {onboard,sqliteD1,origin} from './helpers.mjs';
 
 test('protocol IDs are stripped from chat text; ordinary words are kept',()=>{
  const N='1c189da86386a89a';
@@ -19,7 +19,7 @@ test('protocol IDs are stripped from chat text; ordinary words are kept',()=>{
 });
 
 test('replies are stored clean, retries still replay, and old rows are cleaned on display',async()=>{
- const h=sqliteD1(),owner={id:'clean-owner',name:'Cleo'};
+ const h=sqliteD1(),owner={id:'clean-owner',name:'Cleo'};onboard(h.sql,[owner]);
  const call=async(path,method='GET',body,token)=>{const headers=new Headers({Origin:origin});if(body!==undefined)headers.set('Content-Type','application/json');if(token)headers.set('Authorization','Bearer '+token);const r=await handle(new Request(origin+path,{method,headers,body:body===undefined?undefined:JSON.stringify(body)}),h.db,token?null:owner);return {status:r.status,body:await r.json()};};
  try{
   const key=(await call('/api/owner/connections','POST',{agent_name:"Cleo's Muse"})).body.access_token;

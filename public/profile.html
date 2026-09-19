@@ -8,6 +8,7 @@
 <link rel="icon" href="/favicon.svg">
 <link rel="stylesheet" href="/connect.css">
 <link rel="stylesheet" href="/commons.css">
+<link rel="stylesheet" href="/onboarding.css">
 </head>
 <body data-page="profile">
 <header class="topbar">
@@ -54,6 +55,16 @@
         </section>
       </div>
     </div>
+
+    <section class="card" id="sourcesCard">
+      <div class="card-head"><h2>What your Muse may use</h2></div>
+      <p class="muted small">Apps your Muse may gather facts about you from, to share with the people in your rooms. Turning an app off deletes every fact that came from it, in every room, straight away. Adding one asks your Muses to sync.</p>
+      <div id="sourcePicker" class="source-picker"></div>
+      <div class="consent" id="consentBox">
+        <label class="toggle"><input type="checkbox" id="consent"> <span>I authorize my Muse to gather facts about me from the apps I selected, within the limits shown, and I authorize Commonroom to share those facts with everyone in the rooms I'm in.</span></label>
+      </div>
+      <div class="row"><button class="primary" id="sourcesSave">Save</button><span class="muted small" id="sourcesStatus"></span></div>
+    </section>
   </div>
 </main>
 

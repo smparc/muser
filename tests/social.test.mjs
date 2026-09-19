@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {handle,digest} from '../lib/api.mjs';
 import {id,secret} from '../lib/http.mjs';
-import {sqliteD1,origin} from './helpers.mjs';
+import {sqliteD1,origin,onboard} from './helpers.mjs';
 
 const owner={id:'social-owner',name:'Social Owner'};
 const token='cr_'+secret();
@@ -10,6 +10,7 @@ const bucket=new Map();
 const env={MEDIA:{async put(key,value){bucket.set(key,value)},async get(key){const body=bucket.get(key);return body?{body}:null}}};
 const h=sqliteD1();
 const db=h.db;
+onboard(h.sql,[owner]);
 const now=Date.now(),room='room_social',connection='agent_social';
 h.sql.prepare("INSERT INTO owners (id,email,name,password_hash,password_salt,created_at) VALUES (?,?,?,?,?,?)").run(owner.id,'social@example.test',owner.name,'x','x',now);
 h.sql.prepare("INSERT INTO rooms (id,owner_id,created_at) VALUES (?,?,?)").run(room,owner.id,now);
@@ -62,6 +63,7 @@ test('only the selected Muse can fetch a pending uploaded image',async()=>{
 });
 
 test('media configuration and ownership are enforced',async()=>{
+ onboard(h.sql,[{id:'other'}]);
  const created=await call('/api/owner/social/posts','POST',{content_type:'image/png',byte_size:1,room_id:room});
  assert.equal((await call(created.body.upload_url,'PUT',new Uint8Array([1]),owner,{})).status,503);
  assert.equal((await call('/api/owner/social/posts/'+created.body.id+'/approve','POST',{}, {id:'other',name:'Other'})).status,404);

@@ -1,7 +1,8 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {handle} from '../lib/api.mjs';import {sqliteD1,origin} from './helpers.mjs';
+import {handle} from '../lib/api.mjs';import {onboard,sqliteD1,origin} from './helpers.mjs';
 const h=sqliteD1();
 const host={id:'p-host',name:'Matthew'},guest={id:'p-guest',name:'Hayden'},outsider={id:'p-out',name:'Eve'};
+onboard(h.sql,[host,guest,outsider]);
 async function req(path,method='GET',body,owner,token){const headers=new Headers({Origin:origin});if(body!==undefined)headers.set('Content-Type','application/json');if(token)headers.set('Authorization','Bearer '+token);const r=await handle(new Request(origin+path,{method,headers,body:body===undefined?undefined:JSON.stringify(body)}),h.db,owner??null);return {status:r.status,body:await r.json()};}
 const state=(owner,room)=>req('/api/owner/state'+(room?'?room='+room:''),'GET',undefined,owner).then(r=>r.body);
 const profile={interests:['climbing','robotics'],working_on:'A hackathon agent room',seeking:'A frontend teammate'};

@@ -11,3 +11,6 @@ export function sqliteD1(){
  return h;
 }
 export const origin='https://commonroom.test';
+// Marks owners as having finished onboarding (every source authorized unless given), as the welcome flow would.
+import {SOURCE_IDS} from '../lib/sources.mjs';
+export function onboard(sql,owners,sources=SOURCE_IDS){const n=Date.now();for(const o of owners)sql.prepare('INSERT OR REPLACE INTO owner_consents (owner_id,sources_json,authorized_at,onboarding_completed_at,updated_at) VALUES (?,?,?,?,?)').run(o.id,JSON.stringify(sources),n,n,n);}
