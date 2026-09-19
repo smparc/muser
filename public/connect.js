@@ -4,6 +4,8 @@ let state = null, mode = null, busy = false;
 const isHost = () => state?.room.role === 'host';
 // The issued key lives only in this variable and the (password-type) input; never in storage or URLs.
 let issued = null;
+// Whether the owner opened the form to connect another Muse (it is always open when they have none).
+let connectOpen = false;
 
 async function action(button, fn) {
   if (button) button.disabled = true; clearError();
@@ -179,8 +181,8 @@ function renderMyMuse() {
       <div class="muse-buttons"><button type="button" data-mykey="${esc(c.id)}">New key</button><button type="button" class="danger" data-mydisconnect="${esc(c.id)}">Disconnect</button></div></div>`;
   }).join('');
   const hasMuse = mine.length > 0;
-  $('showConnect').hidden = !hasMuse || !$('connectForm').hidden;
-  if (!hasMuse) $('connectForm').hidden = false;
+  $('connectForm').hidden = hasMuse && !connectOpen;
+  $('showConnect').hidden = !hasMuse || connectOpen;
   document.querySelectorAll('[data-mykey]').forEach(b => b.onclick = () => {
     if (!confirm('Get a new API key? The current key stops working immediately, so update the key saved in your Muse connector.')) return;
     action(b, async () => showIssued(await api('/connections/' + b.dataset.mykey + '/token', 'POST', {}), true));
@@ -189,13 +191,13 @@ function renderMyMuse() {
     if (confirm('Disconnect this Muse from the room? Its key stops working immediately.')) action(b, () => api('/connections/' + b.dataset.mydisconnect, 'DELETE'));
   });
 }
-$('showConnect').onclick = () => { $('connectForm').hidden = false; $('showConnect').hidden = true; $('agentName').focus(); };
+$('showConnect').onclick = () => { connectOpen = true; renderMyMuse(); $('agentName').focus(); };
 $('connectForm').onsubmit = e => {
   e.preventDefault();
   if (!$('confirmAccess').checked) return showError(new Error('Confirm room access first.'));
   action($('connectButton'), async () => {
     const r = await api('/connections', 'POST', {agent_name: $('agentName').value.trim(), room_id: state.room.id});
-    $('agentName').value = ''; $('confirmAccess').checked = false; $('connectForm').hidden = true;
+    $('agentName').value = ''; $('confirmAccess').checked = false; connectOpen = false;
     showIssued(r, false);
   });
 };
