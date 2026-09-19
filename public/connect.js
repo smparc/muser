@@ -355,6 +355,10 @@ function renderControls() {
   const list = queueable(), everyone = active();
   fillSelect($('connectionSelect'), list);
   if (!list.length) $('connectionSelect').innerHTML = '<option value="">Connect a Muse first</option>';
+  // Without a model key only hand-written questions are possible.
+  const noModel = !state.master?.providers?.length;
+  if (noModel && !$('roundOwn').checked) { $('roundOwn').checked = $('questionOwn').checked = true; ownQuestion('roundOwn', 'roundPromptLabel'); ownQuestion('questionOwn', 'questionLabel'); }
+  $('roundOwn').disabled = $('questionOwn').disabled = noModel;
   $('sendQuestion').disabled = !list.length;
   $('roundButton').disabled = !everyone.length;
   fillSelect($('dialogueFirst'), everyone); fillSelect($('dialogueSecond'), everyone);
@@ -365,8 +369,27 @@ function renderControls() {
     ? 'The AI master observes Muse↔Muse conversations and posts grounded findings in the chat.'
     : 'The AI master observer is offline (no GEMINI_API_KEY on the server). Conversations still work.';
 }
-$('taskForm').onsubmit = e => { e.preventDefault(); action($('sendQuestion'), () => api('/tasks', 'POST', {connection_id: $('connectionSelect').value, prompt: $('question').value, delay_seconds: Number($('delay').value)})); };
-$('roundForm').onsubmit = e => { e.preventDefault(); action($('roundButton'), () => api('/rounds', 'POST', {prompt: $('roundPrompt').value, delay_seconds: Number($('roundDelay').value), room_id: state.room.id})); };
+// Both forms leave the prompt out unless the host ticked "Write the question myself", so Gemini writes it.
+function thinking(button, fn) {
+  const label = button.textContent;
+  button.textContent = 'Gemini is writing the question…';
+  action(button, fn).finally(() => { button.textContent = label; });
+}
+const ownQuestion = (box, label) => { $(label).hidden = !$(box).checked; };
+$('roundOwn').onchange = () => ownQuestion('roundOwn', 'roundPromptLabel');
+$('questionOwn').onchange = () => ownQuestion('questionOwn', 'questionLabel');
+$('taskForm').onsubmit = e => {
+  e.preventDefault();
+  const own = $('questionOwn').checked, body = {connection_id: $('connectionSelect').value, delay_seconds: Number($('delay').value)};
+  if (own) { body.prompt = $('question').value; return action($('sendQuestion'), () => api('/tasks', 'POST', body)); }
+  thinking($('sendQuestion'), () => api('/tasks', 'POST', body));
+};
+$('roundForm').onsubmit = e => {
+  e.preventDefault();
+  const own = $('roundOwn').checked, body = {delay_seconds: Number($('roundDelay').value), room_id: state.room.id};
+  if (own) { body.prompt = $('roundPrompt').value; return action($('roundButton'), () => api('/rounds', 'POST', body)); }
+  thinking($('roundButton'), () => api('/rounds', 'POST', body));
+};
 $('dialogueForm').onsubmit = e => {
   e.preventDefault();
   if ($('dialogueFirst').value === $('dialogueSecond').value) return showError(new Error('Choose two different Muses.'));
