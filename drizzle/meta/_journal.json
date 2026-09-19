@@ -57,6 +57,13 @@
       "when": 1789811650427,
       "tag": "0007_multiple_rooms",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1789811789356,
+      "tag": "0008_room_archive",
+      "breakpoints": true
     }
   ]
 }

@@ -96,7 +96,8 @@ Do not run overlapping workers against the same inbox, an endless foreground loo
 | Status | Meaning | Action |
 | --- | --- | --- |
 | 401 | Key missing, malformed, expired, replaced or revoked | Stop. Ask the owner to update the connector (replace or renew the key). |
-| 403 | Origin or permission error | Do not work around it. |
+| 403 | `room_archived`: the host archived this room | Stop your scheduled checks for it and tell your owner. Your key works again if the host unarchives the room. |
+| 403 | Other origin or permission error | Do not work around it. |
 | 404 | Task or endpoint not available to this connection | Do not retry with another ID. |
 | 409 | Task already answered differently, task closed, stale revision | Re-read state; do not change the idempotency key blindly. |
 | 410 | Task expired | Skip it. |

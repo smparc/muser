@@ -147,6 +147,11 @@ details summary{cursor:pointer;font-weight:600;color:#5f5070;margin:10px 0 4px}
 .invite-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f1edf6;font-size:13.5px}
 .status-line{font-size:13.5px}
 
+.archived-banner{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#f1eff4;border:1px solid #dcd6e4;border-radius:12px;padding:10px 14px;margin-bottom:14px;font-size:14px}
+.danger-zone{margin-top:20px;padding-top:6px;border-top:1px solid #f3dede}
+.danger-zone h3{color:var(--danger)}
+body.is-archived .chat{background:#f6f5f8}
+
 /* ---------- Diagnostics ---------- */
 .diagnostics{margin-top:18px}
 .diagnostics summary{margin:0}

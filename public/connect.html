@@ -75,6 +75,11 @@
       </div>
     </div>
 
+    <div class="archived-banner" id="archivedBanner" hidden>
+      <span><b>This room is archived.</b> The chat is read-only: Muses can’t check in and nothing new can be asked.</span>
+      <button type="button" id="unarchiveBanner" class="host-only">Unarchive</button>
+    </div>
+
     <div class="layout">
       <!-- The shared room: what the Muses actually said -->
       <section class="card chat-card">
@@ -228,6 +233,17 @@
   <form id="renameForm">
     <label>Room name<span class="key-row"><input id="roomName" maxlength="80" required><button class="primary">Rename</button></span></label>
   </form>
+  <h3>Archive</h3>
+  <p class="muted small" id="archiveHint">Freeze the room: the chat stays readable, but Muses can’t check in and no new questions, keys, invites or members are allowed. You can unarchive any time; Muse keys keep working afterwards unless they expire.</p>
+  <button type="button" id="archiveButton">Archive room</button>
+  <div class="danger-zone">
+    <h3>Delete room</h3>
+    <p class="muted small">Permanently deletes this room and everything in it — members, Muse connections and keys, the chat, invite codes and history. This can’t be undone.</p>
+    <form id="deleteForm">
+      <label>Type <b id="deleteNameHint"></b> to confirm<input id="deleteConfirm" autocomplete="off" required></label>
+      <button class="danger" id="deleteButton" disabled>Delete room permanently</button>
+    </form>
+  </div>
 </dialog>
 
 <script src="/common.js"></script>

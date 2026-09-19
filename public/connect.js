@@ -80,12 +80,14 @@ function liveness(c) {
 
 function render() {
   document.body.classList.toggle('is-host', isHost());
+  document.body.classList.toggle('is-archived', !!state.room.archived_at);
   document.querySelectorAll('.host-only').forEach(el => el.hidden = !isHost());
   document.querySelectorAll('.member-only').forEach(el => el.hidden = isHost());
   renderRoomHeader();
   renderChat();
   renderMyMuse();
   renderControls();
+  renderArchived();
   renderPeople();
   renderInvites();
   renderIssueStatus();
@@ -98,7 +100,7 @@ function renderRoomHeader() {
   $('roomTitle').textContent = room.name;
   $('roomSubtitle').textContent = `${isHost() ? 'You host this room' : 'Hosted by ' + room.host_name} · ${state.members.length} ${state.members.length === 1 ? 'person' : 'people'} · ${museCount} ${museCount === 1 ? 'Muse' : 'Muses'} connected`;
   const picker = $('roomPicker');
-  const options = state.rooms.map(r => `<option value="${esc(r.id)}">${esc(r.name)}${r.role === 'host' ? ' (yours)' : ''}</option>`).join('');
+  const options = state.rooms.map(r => `<option value="${esc(r.id)}">${esc(r.name)}${r.role === 'host' ? ' (yours)' : ''}${r.archived ? ' · archived' : ''}</option>`).join('');
   if (picker.dataset.options !== options) { picker.innerHTML = options; picker.dataset.options = options; }
   picker.value = room.id;
   document.title = 'Commonroom · ' + room.name;
@@ -346,7 +348,36 @@ $('createForm').onsubmit = e => {
     selectRoom(r.room_id); clearIssued(); $('chat').dataset.html = '';
   });
 };
-$('openSettings').onclick = () => { $('roomName').value = state.room.name; $('settingsDialog').showModal(); };
+$('openSettings').onclick = () => { $('roomName').value = state.room.name; $('deleteConfirm').value = ''; $('deleteButton').disabled = true; $('settingsDialog').showModal(); };
+
+// ---------- Archive & delete ----------
+const archived = () => !!state?.room.archived_at;
+function renderArchived() {
+  $('archivedBanner').hidden = !archived();
+  $('archiveButton').textContent = archived() ? 'Unarchive room' : 'Archive room';
+  $('archiveButton').classList.toggle('primary', archived());
+  $('deleteNameHint').textContent = state.room.name;
+  // Nothing new can be queued or connected while archived; the server enforces this too.
+  for (const id of ['connectButton', 'roundButton', 'sendQuestion', 'dialogueButton', 'openInvite', 'showConnect']) if (archived()) $(id).disabled = true;
+  if (!archived()) { $('connectButton').disabled = false; $('openInvite').disabled = false; $('showConnect').disabled = false; }
+  document.querySelectorAll('[data-mykey]').forEach(b => b.disabled = archived());
+}
+function setArchived(button, value) {
+  const verb = value ? 'Archive' : 'Unarchive';
+  if (value && !confirm(`Archive ${state.room.name}? Muses will be refused when they check in and nothing new can be asked until you unarchive it.`)) return;
+  action(button, () => api('/rooms/' + state.room.id, 'PUT', {archived: value}).then(r => { if (!r || r.archived !== value) throw Error(verb + ' failed.'); }));
+}
+$('archiveButton').onclick = () => setArchived($('archiveButton'), !archived());
+$('unarchiveBanner').onclick = () => setArchived($('unarchiveBanner'), false);
+$('deleteConfirm').oninput = () => { $('deleteButton').disabled = $('deleteConfirm').value !== state.room.name; };
+$('deleteForm').onsubmit = e => {
+  e.preventDefault();
+  if ($('deleteConfirm').value !== state.room.name) return;
+  action($('deleteButton'), async () => {
+    await api('/rooms/' + state.room.id, 'DELETE', {confirm_name: $('deleteConfirm').value});
+    $('settingsDialog').close(); selectRoom(null); clearIssued(); $('chat').dataset.html = '';
+  });
+};
 $('roomInviteForm').onsubmit = e => {
   e.preventDefault();
   const body = {max_uses: Number($('roomInviteUses').value), expires_in_days: Number($('roomInviteDays').value)};

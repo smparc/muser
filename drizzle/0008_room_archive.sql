@@ -1,0 +1,1 @@
+ALTER TABLE `rooms` ADD `archived_at` integer;
