@@ -42,6 +42,7 @@ test('members connect their own Muse into the shared room; agents see each other
  assert.equal(agentRoom.room_id,room);assert.equal(agentRoom.members.length,2);
  const hs=await state(host);const gc=hs.connections.find(c=>c.id===guestCid);
  assert.equal(gc.mine,false);assert.equal(gc.owner_name,'Sam');
+ assert.equal(gc.owner_id,'owner-guest');
 });
 
 test('permissions: members manage only their own connections; host moderates',async()=>{

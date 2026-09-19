@@ -78,7 +78,8 @@ function startRoom() {
       let a=avatars.get(id);
       if(!a) {
         const seed=seedFor(id), accessory=preview?(id==='preview-scarf'?'scarf':'satchel'):(seed%2?'satchel':'scarf');
-        const model=createMuse({seed,accessory,detail:mobile.matches ? .48 : .9});model.root.userData.connectionId=id;
+        const connectionIdentity=actor.connection.owner_id||actor.connection.owner_name||id;
+        const model=createMuse({seed,accessory,detail:mobile.matches ? .48 : .9,identity:connectionIdentity,connectionStatus:actor.connection.status});model.root.userData.connectionId=id;
         model.root.position.set(-8+(avatars.size%4)*1.9,.11,5.2);scene.add(model.root);
         const label=document.createElement('div');label.className='label muse-label';label.dataset.muse=id;
         label.innerHTML='<button type="button" class="name"></button><span class="actor-status"></span>';
@@ -89,6 +90,7 @@ function startRoom() {
         a={model,label,speech,selection,target:new THREE.Vector3(),yaw:0,actor,speechId:null};avatars.set(id,a);
       }
       a.actor=actor;
+      a.model.setConnectionState({owner:actor.connection.owner_id||actor.connection.owner_name||id,status:actor.connection.status});
       let seat=assignments.get(id);
       if(!seat) {const i=idleIndex++, angle=-.9+i*.8;seat={x:Math.sin(angle)*5.7,z:Math.cos(angle)*2.7+2.8,faceX:0,faceZ:8};if(!actor.active)seat={x:-8.5+i*1.8,z:5.8,faceX:0,faceZ:9};}
       a.target.set(seat.x,.11,seat.z);a.yaw=Math.atan2(seat.faceX-seat.x,seat.faceZ-seat.z);a.model.root.scale.setScalar(actor.active?1:.9);
