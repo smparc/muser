@@ -12,6 +12,11 @@ const ago = t => {
 };
 
 let state = null, mode = null, busy = false;
+// Selected room is a per-browser convenience only; the server decides what each owner may see.
+const ROOM_KEY = 'commonroom.room';
+let currentRoom = (() => { try { return localStorage.getItem(ROOM_KEY); } catch { return null; } })();
+function selectRoom(id) { currentRoom = id; try { id ? localStorage.setItem(ROOM_KEY, id) : localStorage.removeItem(ROOM_KEY); } catch {} }
+const isHost = () => state?.room.role === 'host';
 // The issued key lives only in this variable and the (password-type) input; never in storage or URLs.
 let issued = null;
 
@@ -70,7 +75,9 @@ $('signOut').onclick = async () => {
 async function refresh() {
   if (busy) return; busy = true;
   try {
-    state = await api('/state');
+    try { state = await api('/state' + (currentRoom ? '?room=' + encodeURIComponent(currentRoom) : '')); }
+    catch (err) { if (err.code !== 'room_not_found') throw err; selectRoom(null); state = await api('/state'); }
+    if (state.room.id !== currentRoom) selectRoom(state.room.id);
     show('workspace');
     $('signOut').hidden = mode !== 'password';
     if (!$('ownerName').textContent) $('ownerName').textContent = state.owner.name;
@@ -85,6 +92,8 @@ async function refresh() {
 
 const STATUS_LABEL = {awaiting_first_request: 'Awaiting first request', connected: 'Connected', expired: 'Expired', revoked: 'Revoked'};
 const active = () => state.connections.filter(c => c.status === 'connected' || c.status === 'awaiting_first_request');
+// Members may queue work for their own agents; the host for any agent in the room.
+const queueable = () => active().filter(c => c.mine || isHost());
 const nameOf = id => state.connections.find(c => c.id === id)?.name ?? 'Room';
 
 // Observed polling cadence from recorded inbox checks (evidence of a schedule, not proof of one).
@@ -99,6 +108,7 @@ function polling(c) {
 }
 
 function render() {
+  renderRoom();
   renderIssueStatus();
   renderConnections();
   renderSelectors();
@@ -114,10 +124,10 @@ function renderConnections() {
     const poll = polling(c);
     const live = c.status === 'connected' || c.status === 'awaiting_first_request';
     const buttons = c.status === 'revoked'
-      ? `<button data-fresh="${esc(c.name)}">Create fresh connection</button>`
-      : `<button data-rotate="${esc(c.id)}">${c.status === 'expired' ? 'Renew key' : 'Replace key'}</button><button data-revoke="${esc(c.id)}">Revoke</button>`;
+      ? (c.mine ? `<button data-fresh="${esc(c.name)}">Create fresh connection</button>` : '')
+      : (c.mine ? `<button data-rotate="${esc(c.id)}">${c.status === 'expired' ? 'Renew key' : 'Replace key'}</button>` : '') + (c.mine || isHost() ? `<button data-revoke="${esc(c.id)}">${c.mine ? 'Revoke' : 'Remove from room'}</button>` : '');
     return `<div class="connection ${live ? '' : 'dim'}">
-      <div class="connection-top"><strong>${esc(c.name)}</strong><span class="pill ${esc(c.status)}">${STATUS_LABEL[c.status]}</span></div>
+      <div class="connection-top"><strong>${esc(c.name)} <span class="meta">${c.mine ? 'yours' : 'by ' + esc(c.owner_name)}</span></strong><span class="pill ${esc(c.status)}">${STATUS_LABEL[c.status]}</span></div>
       <dl>
         <dt>Last API activity</dt><dd>${c.last_seen_at ? ago(c.last_seen_at) : 'none'}</dd>
         <dt>Last inbox check</dt><dd>${c.last_inbox_at ? ago(c.last_inbox_at) : 'none'}</dd>
@@ -143,10 +153,11 @@ function renderConnections() {
 }
 
 function renderSelectors() {
-  const list = active(), selected = $('connectionSelect').value;
+  const list = queueable(), selected = $('connectionSelect').value;
   $('connectionSelect').innerHTML = list.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('') || '<option value="">Connect a Muse first</option>';
   if (list.some(c => c.id === selected)) $('connectionSelect').value = selected;
-  $('sendQuestion').disabled = $('roundButton').disabled = !list.length;
+  $('sendQuestion').disabled = !list.length;
+  $('roundButton').disabled = !active().length;
 }
 
 function renderChecks() {
@@ -192,6 +203,9 @@ const EVENT_TEXT = {
   key_replaced: () => 'Key replaced — old key invalid',
   revoked: () => 'Connection revoked',
   round_queued: e => `Room round queued for ${e.detail?.tasks} connection(s)`,
+  member_joined: e => `${e.detail?.name} joined the room`,
+  member_left: e => `${e.detail?.name} left the room`,
+  member_removed: e => `${e.detail?.name} was removed by the host`,
 };
 function renderEvents() {
   $('events').innerHTML = state.events.slice(0, 40).map(e => `<div class="event"><span class="meta">${time(e.created_at)}</span> <b>${esc(e.connection_id ? nameOf(e.connection_id) : 'Admin')}</b> ${esc((EVENT_TEXT[e.type] ?? (() => e.type))(e))}</div>`).join('') || '<p class="empty">No events yet.</p>';
@@ -202,7 +216,7 @@ $('connectForm').onsubmit = e => {
   e.preventDefault();
   if (!$('confirmAccess').checked) return showError(new Error('Confirm room access first.'));
   action($('connectButton'), async () => {
-    const r = await api('/connections', 'POST', {agent_name: $('agentName').value.trim()});
+    const r = await api('/connections', 'POST', {agent_name: $('agentName').value.trim(), room_id: state.room.id});
     $('agentName').value = ''; $('confirmAccess').checked = false;
     showIssued(r, false);
   });
@@ -278,7 +292,7 @@ $('taskForm').onsubmit = e => {
 };
 $('roundForm').onsubmit = e => {
   e.preventDefault();
-  action($('roundButton'), () => api('/rounds', 'POST', {prompt: $('roundPrompt').value, delay_seconds: Number($('roundDelay').value)}));
+  action($('roundButton'), () => api('/rounds', 'POST', {prompt: $('roundPrompt').value, delay_seconds: Number($('roundDelay').value), room_id: state.room.id}));
 };
 
 // ---------- Optional pairing ----------
@@ -295,6 +309,50 @@ $('invite').onclick = () => action($('invite'), async () => {
   $('inviteExpiry').textContent = 'Expires ' + time(r.expires_at);
   $('invitePrompt').value = `Read ${location.origin}/agent-guide.md (section "Optional: pairing"). My one-use invite code is: ${r.invite_code}\nStart a pairing request with your agent name${auto ? ' and redeem immediately (pre-authorized)' : ', show me the verification code and wait for my approval'}. Store the resulting key only in a supported credential mechanism; if you have none, stop and tell me — I can issue a connector key instead.`;
 });
+
+// ---------- Room membership ----------
+function renderRoom() {
+  const room = state.room;
+  $('roomTitle').textContent = room.name;
+  $('roomRole').textContent = room.role === 'host' ? 'YOU HOST THIS ROOM' : 'MEMBER · HOSTED BY ' + (room.host_name || '').toUpperCase();
+  const picker = $('roomPicker');
+  $('roomPickerLabel').hidden = state.rooms.length < 2;
+  picker.innerHTML = state.rooms.map(r => `<option value="${esc(r.id)}">${esc(r.name)}${r.role === 'host' ? ' (yours)' : ''}</option>`).join('');
+  picker.value = room.id;
+  document.querySelectorAll('.host-only').forEach(el => el.hidden = !isHost());
+  $('renameForm').hidden = $('inviteHost').hidden = !isHost();
+  if (document.activeElement !== $('roomName')) $('roomName').value = room.name;
+  $('members').innerHTML = state.members.map(m => `<div class="member"><span>${esc(m.name)} <span class="meta">${m.role}${m.you ? ' · you' : ''} · joined ${ago(m.joined_at)}</span></span>
+    ${m.role !== 'host' && m.you ? `<button data-leave="${esc(m.id)}">Leave room</button>` : ''}
+    ${m.role !== 'host' && !m.you && isHost() ? `<button data-remove="${esc(m.id)}" data-name="${esc(m.name)}">Remove</button>` : ''}</div>`).join('');
+  $('roomInvites').innerHTML = state.invites.length ? '<h3>Active codes</h3>' + state.invites.map(i => `<div class="member"><span>${esc(i.label || 'Invite code')} <span class="meta">${i.uses}/${i.max_uses} used · expires ${time(i.expires_at)}</span></span><button data-revoke-invite="${esc(i.id)}">Revoke</button></div>`).join('') : '';
+  document.querySelectorAll('[data-leave]').forEach(b => b.onclick = () => {
+    if (confirm('Leave this room? Your agents here are disconnected immediately.')) action(b, async () => { await api('/rooms/' + room.id + '/members/' + b.dataset.leave, 'DELETE'); selectRoom(null); });
+  });
+  document.querySelectorAll('[data-remove]').forEach(b => b.onclick = () => {
+    if (confirm('Remove ' + b.dataset.name + ' from the room? Their agents here are disconnected immediately.')) action(b, () => api('/rooms/' + room.id + '/members/' + b.dataset.remove, 'DELETE'));
+  });
+  document.querySelectorAll('[data-revoke-invite]').forEach(b => b.onclick = () => action(b, () => api('/rooms/' + room.id + '/invites/' + b.dataset.revokeInvite, 'DELETE')));
+}
+$('roomPicker').onchange = () => { selectRoom($('roomPicker').value); clearIssued(); refresh(); };
+$('renameForm').onsubmit = e => { e.preventDefault(); action(e.submitter, () => api('/rooms/' + state.room.id, 'PUT', {name: $('roomName').value.trim()})); };
+$('roomInviteForm').onsubmit = e => {
+  e.preventDefault();
+  const body = {max_uses: Number($('roomInviteUses').value), expires_in_days: Number($('roomInviteDays').value)};
+  if ($('roomInviteLabel').value.trim()) body.label = $('roomInviteLabel').value.trim();
+  action($('roomInviteButton'), async () => {
+    const r = await api('/rooms/' + state.room.id + '/invites', 'POST', body);
+    $('newInviteCode').textContent = r.code;
+    $('newInviteMeta').textContent = `Up to ${r.max_uses} people · expires ${time(r.expires_at)}. Tell them: sign in at ${location.origin}/connect.html and enter this code under Join a room.`;
+    $('newInvite').hidden = false; $('roomInviteLabel').value = '';
+  });
+};
+$('copyInvite').onclick = () => copy($('copyInvite'), $('newInviteCode').textContent);
+$('closeInvite').onclick = () => { $('newInviteCode').textContent = ''; $('newInvite').hidden = true; };
+$('joinForm').onsubmit = e => {
+  e.preventDefault();
+  action($('joinButton'), async () => { const r = await api('/rooms/join', 'POST', {code: $('joinCode').value}); $('joinCode').value = ''; selectRoom(r.room_id); clearIssued(); });
+};
 
 $('retrySignIn').onclick = refresh;
 $('refreshButton').onclick = refresh;

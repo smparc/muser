@@ -31,7 +31,8 @@ test('owner issues a connector key without any pairing',async()=>{
 test('issuance requires a signed-in same-origin owner and ignores body-supplied ownership',async()=>{
  assert.equal((await req('/api/owner/connections','POST',{agent_name:'x'})).status,401);
  assert.equal((await req('/api/owner/connections','POST',{agent_name:'x'},{owner:hostA,origin:'https://evil.test'})).status,403);
- assert.equal((await req('/api/owner/connections','POST',{agent_name:'x',room_id:'room_x'},{owner:hostA})).status,422);
+ // room_id is only honoured for rooms the owner belongs to.
+ assert.equal((await req('/api/owner/connections','POST',{agent_name:'x',room_id:'room_x'},{owner:hostA})).status,404);
  assert.equal((await req('/api/owner/connections','POST',{agent_name:'x',owner_id:hostB.id},{owner:hostA})).status,422);
  assert.equal((await req('/api/owner/connections','POST',{agent_name:''},{owner:hostA})).status,422);
  assert.equal((await req('/api/owner/connections','POST',{agent_name:'x'.repeat(61)},{owner:hostA})).status,422);

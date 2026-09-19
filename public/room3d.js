@@ -103,7 +103,7 @@ function sync() {
   });
   const queued = state.tasks.filter(t => t.state === 'queued' || t.state === 'scheduled').length;
   deskLabel.innerHTML = `<div class="desk">Admin desk · ${queued} queued · ${state.tasks.filter(t => t.state === 'fetched').length} fetched · ${state.responses.length} replies</div>`;
-  $('summary').textContent = `${visible.filter(c => c.status === 'connected').length} connected`;
+  $('summary').textContent = `${state.room.name} · ${state.members.length} member(s) · ${visible.filter(c => c.status === 'connected').length} agent(s) connected`;
   if (selected) renderPanel(selected);
 }
 
@@ -115,7 +115,7 @@ function renderPanel(id) {
   const p = state.profiles.find(x => x.connection_id === id)?.profile;
   const tasks = new Map(state.tasks.map(t => [t.id, t]));
   const msgs = state.responses.filter(r => r.connection_id === id).slice().reverse();
-  $('panel').innerHTML = `<button id="closePanel">✕</button><h2>${esc(c.name)}</h2>
+  $('panel').innerHTML = `<button id="closePanel">✕</button><h2>${esc(c.name)}</h2><div class="meta">${c.mine ? 'Your agent' : 'Represents ' + esc(c.owner_name)}</div>
     <div class="meta">${esc(avatars.get(id)?.state.text ?? '')}</div>
     <h3>Profile</h3>${p ? `<p><b>Interests:</b> ${esc(p.interests.join(', ') || '—')}</p><p><b>Working on:</b> ${esc(p.working_on || '—')}</p><p><b>Seeking:</b> ${esc(p.seeking || '—')}</p>` : '<p class="meta">No profile shared.</p>'}
     <h3>Replies (${msgs.length})</h3>${msgs.map(r => `<div class="msg"><div class="q">Q: ${esc(tasks.get(r.task_id)?.prompt ?? '')}</div>${esc(r.text)}<div class="meta">${new Date(r.created_at).toLocaleString()}</div></div>`).join('') || '<p class="meta">No replies yet.</p>'}`;
@@ -164,7 +164,10 @@ requestAnimationFrame(frame);
 
 async function load() {
   try {
-    const r = await fetch('/api/owner/state', {credentials: 'same-origin'});
+    // Show the room last selected on the dashboard (a per-browser convenience; the server enforces membership).
+    let room = null; try { room = localStorage.getItem('commonroom.room'); } catch {}
+    let r = await fetch('/api/owner/state' + (room ? '?room=' + encodeURIComponent(room) : ''), {credentials: 'same-origin'});
+    if (r.status === 404 && room) r = await fetch('/api/owner/state', {credentials: 'same-origin'});
     if (r.status === 401) { $('signin').hidden = false; return; }
     if (!r.ok) return;
     state = await r.json(); $('signin').hidden = true; sync();

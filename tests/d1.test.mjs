@@ -26,5 +26,10 @@ assert.equal(conn.status,'connected');assert.ok(conn.last_inbox_at&&conn.last_re
 assert.equal(s.responses.filter(r=>r.task_id===t2.id).length,1);
 const mcp=await handleMcp(new Request(origin+'/mcp',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+key},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'get_room',arguments:{}}})}),db);assert.equal((await mcp.json()).result.structuredContent.messages.length,1);
 const replaced=(await call('/api/owner/connections/'+conn.id+'/token','POST',{},null,true)).body.access_token;assert.equal((await call('/api/v1/me','GET',undefined,key)).status,401);assert.equal((await call('/api/v1/me','GET',undefined,replaced)).status,200);
-console.log('PASS: local D1 with all migrations; optional pairing (concurrent one-time redemption); owner-issued connector key; single first-request event under concurrency; inbox checks; concurrent reply idempotency; MCP room read; key replacement; revocation. No Muse client was used.');
+// Room invite: a single-use code admits exactly one of two concurrent joiners (changes() inside a D1 batch).
+const call2=async(path,method,body,who)=>{const r=await handle(new Request(origin+path,{method,headers:{'Content-Type':'application/json',Origin:origin},body:JSON.stringify(body)}),db,who);return {status:r.status,body:await r.json()};};
+const inv2=(await call2('/api/owner/rooms/'+s.room_id+'/invites','POST',{max_uses:1},owner)).body;
+const joins=await Promise.all([call2('/api/owner/rooms/join','POST',{code:inv2.code},{id:'j1',name:'J1'}),call2('/api/owner/rooms/join','POST',{code:inv2.code},{id:'j2',name:'J2'})]);
+assert.deepEqual(joins.map(r=>r.status).sort(),[201,409]);
+console.log('PASS: local D1 with all migrations; optional pairing (concurrent one-time redemption); owner-issued connector key; single first-request event under concurrency; inbox checks; concurrent reply idempotency; MCP room read; key replacement; revocation; single-use room invite under concurrent joins. No Muse client was used.');
 }finally{await mf.dispose();}

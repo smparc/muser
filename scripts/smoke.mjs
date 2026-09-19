@@ -32,4 +32,15 @@ const anon=await fetch(origin+'/api/owner/state');assert.equal(anon.status,401);
 const spec=await fetch(origin+'/openapi.json').then(r=>r.json());assert.equal(spec.servers[0].url,origin);step('openapi.json served with live origin');
 const guide=await fetch(origin+'/agent-guide.md').then(r=>r.text());assert.ok(guide.includes(origin)&&!guide.includes('{{ORIGIN}}'));step('agent guide served with live origin');
 for(const p of ['/connect.html','/connect.js','/room3d.html','/room3d.js'])assert.equal((await fetch(origin+p)).status,200);step('dashboard and 3D room assets served');
+// Room invites: a second owner (separate cookie jar) joins by code and connects their own agent.
+const hostCookie=cookie;
+const hostRoom=(await owner('/api/owner/state')).body.room.id;
+const code=(await owner(`/api/owner/rooms/${hostRoom}/invites`,'POST',{max_uses:1})).body.code;assert.match(code,/^[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/);
+cookie='';assert.equal((await owner('/api/auth/signup','POST',{email:`guest-${Date.now()}@example.com`,password:'smoke-test-password',name:'Smoke Guest'})).status,200);
+assert.equal((await owner('/api/owner/rooms/join','POST',{code})).status,201);
+const guestKey=(await owner('/api/owner/connections','POST',{agent_name:'Guest Muse',room_id:hostRoom})).body.access_token;
+const shared=(await agent(guestKey,'/api/v1/room')).body;assert.equal(shared.room_id,hostRoom);
+assert.equal((await owner(`/api/owner/rooms/${hostRoom}/invites`,'POST',{})).status,403);
+cookie=hostCookie;assert.ok((await owner('/api/owner/state')).body.members.some(m=>m.name==='Smoke Guest'));
+step('room invite code: second owner joined, connected their agent into the shared room');
 console.log('\nSmoke test complete against',origin,'— this exercises HTTP only; it is not a Muse client.');
