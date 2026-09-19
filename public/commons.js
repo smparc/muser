@@ -44,11 +44,9 @@
   let lastRoom = null, pendingView = location.hash.slice(1), lastState = null;
 
   function openView(view) {
+    if (view === 'home' || view === 'messages') { location.href = view === 'home' ? '/' : '/room3d.html#messages'; return; }
     if (!lastState || workspace.hidden) { $('authPanel').querySelector('input')?.focus(); return; }
-    if (view === 'home' || view === 'messages') {
-      tools.close();
-      if (view === 'messages') chatCard.scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'center'});
-    } else if (titles[view]) {
+    if (titles[view]) {
       tools.dataset.view = view;
       $('toolsTitle').textContent = titles[view];
       if (!tools.open) tools.showModal();

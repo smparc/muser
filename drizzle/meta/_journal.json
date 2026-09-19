@@ -64,6 +64,20 @@
       "when": 1789811789356,
       "tag": "0008_room_archive",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789820000000,
+      "tag": "0009_social_posts",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789821000000,
+      "tag": "0010_social_post_connection",
+      "breakpoints": true
     }
   ]
 }

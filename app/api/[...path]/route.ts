@@ -14,6 +14,6 @@ async function route(request:Request){
     return Response.json({error:'identity_unavailable',message:'ChatGPT returned incomplete account information. Your room remains locked until the hosting service provides your account ID.'},{status:503,headers:{'Cache-Control':'no-store'}});
   }
   const owner=path.startsWith('/api/owner/')?await getChatGPTUser():null;
-  return handle(request,env.DB,owner?{id:owner.userId,name:owner.displayName}:null,masterRuntime(env.DB,env));
+  return handle(request,env.DB,owner?{id:owner.userId,name:owner.displayName}:null,masterRuntime(env.DB,env),env);
 }
 export const GET=route;export const POST=route;export const PUT=route;export const DELETE=route;
