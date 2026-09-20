@@ -1,4 +1,4 @@
-/* Commonroom's shared visual language: open white surfaces, soft blue and generous space. */
+/* Muser's shared visual language: open white surfaces, soft blue and generous space. */
 :root{--bg:#f7f8fb;--card:#fff;--line:#e9ecf2;--text:#141a2d;--muted:#71788a;--brand:#2161ff;--brand-soft:#edf3ff;--me:#2161ff;--them:#f0f3f8;--master:#f8f9fd;--master-line:#e4eaf6;--controls:#fff;--ok:#28bb7b;--idle:#a1a9b8;font-family:Inter,"Segoe UI",Arial,sans-serif;font-size:15px}
 body{background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
 button,.button,input,textarea,select{font-family:inherit}

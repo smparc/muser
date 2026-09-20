@@ -68,7 +68,8 @@ test('membership, rather than connector count, controls joins, departures and re
 test('room status distinguishes readiness, connected Muses, archives, stale data and sign-out',()=>{
   const s={room:{},members:[{id:'host',name:'Host',you:true}],connections:[]};
   let result=deriveInteractions(s,now),status=describeRoom(s,result);
-  assert.equal(status.label,'Room ready');assert.equal(status.tone,'waiting');assert.equal(status.detail,'1 person · 1 Muse · 0 connected');
+  // A member without a connected Muse is a person standing in the room, not a Muse.
+  assert.equal(status.label,'Room ready');assert.equal(status.tone,'waiting');assert.equal(status.detail,'1 person · 0 Muses · 0 connected');
   s.connections=[{id:'a',member_id:'host',name:'Host Muse',status:'connected',expires_at:now+10}];result=deriveInteractions(s,now);
   assert.equal(describeRoom(s,result).detail,'1 person · 1 Muse · 1 connected');
   s.room.archived_at=now;assert.equal(describeRoom(s,result).label,'Room archived');assert.equal(describeRoom(s,result).tone,'offline');

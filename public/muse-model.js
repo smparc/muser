@@ -78,7 +78,7 @@ export function createMuse({seed = 1, accessory = 'scarf', detail = 1, identity 
     const foot = new THREE.Group(); foot.position.set(side * .31, .22, .17); rig.add(foot);
     ball(foot, cream, [.28, .23, .38], [0, 0, .04]); feet.push(foot);
   }
-  // The Commonroom mark is real blue piping on the belly.
+  // The Muser mark is real blue piping on the belly.
   curve(rig, [[-.22, 1.07, .49], [-.10, 1.31, .505], [-.10, 1.08, .523], [.08, 1.30, .511], [.06, 1.07, .53], [.23, 1.24, .505]], .034, blue);
   const identityBadge = new THREE.Mesh(new THREE.CircleGeometry(.115, 20), identityMaterial);
   identityBadge.position.set(0, 1.02, .555); rig.add(identityBadge);
@@ -117,13 +117,17 @@ export function createMuse({seed = 1, accessory = 'scarf', detail = 1, identity 
       const talking = animated && motion === 'speaking';
       const listening = animated && motion === 'listening';
       const thinking = animated && motion === 'thinking';
+      const greeting = animated && motion === 'greeting' && walking < .2;
+      const phrase = Math.max(0,Math.sin(t * 1.3));
+      const nod = Math.max(0,Math.sin(t * .85)) ** 8;
       const step = animated ? Math.sin(t * 8) * walking : 0;
       rig.position.y = animated ? Math.sin(t * 1.7) * .012 * energy + Math.abs(step) * .07 : 0;
       rig.rotation.z = animated ? Math.sin(t * 2) * .012 * energy : 0;
-      head.rotation.x = talking ? Math.sin(t * 6) * .045 : listening ? Math.sin(t * 2.4) * .07 : thinking ? -.06 : 0;
-      head.rotation.z = listening ? -.06 : talking ? Math.sin(t * 3) * .03 : 0;
-      arms[0].rotation.z = -.12 - (talking ? .28 + Math.sin(t * 5) * .18 : 0);
-      arms[1].rotation.z = .12 + (thinking ? .58 : talking ? .5 + Math.sin(t * 4 + 1) * .25 : 0);
+      head.rotation.x = talking ? Math.sin(t * 3) * .035 : listening ? nod * Math.sin(t * 5) * .09 : thinking ? -.06 : 0;
+      head.rotation.z = listening ? Math.sin(t*.6)*.045 : talking ? Math.sin(t * 2) * .025 : 0;
+      head.rotation.y = animated && walking < .2 ? Math.sin(t*.55)*.045 : 0;
+      arms[0].rotation.z = -.12 - (talking ? phrase*(.28 + Math.sin(t * 3) * .12) : 0);
+      arms[1].rotation.z = .12 + (greeting ? 1.7+Math.sin(t*9)*.18 : thinking ? .58 : talking ? phrase*(.5 + Math.sin(t * 3 + 1) * .2) : 0);
       arms[0].rotation.x = step * .45; arms[1].rotation.x = -step * .45 - (thinking ? .35 : 0);
       feet[0].position.y = .22 + Math.max(0, step) * .1;
       feet[1].position.y = .22 + Math.max(0, -step) * .1;

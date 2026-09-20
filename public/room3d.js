@@ -43,43 +43,14 @@ function startRoom() {
   let lastInteraction=0, previousFrame=0, animationFrame=0, lastRoom=null, busy=false, destroyed=false, stale=false;
   let signedOut=false,clockOffset=0;
   const previewStart=Date.now(), project = new THREE.Vector3(), ray = new THREE.Raycaster(), pointer = new THREE.Vector2();
-  // Muses outside a conversation stroll the commons and pause to look around instead of standing on a grid.
-  const wanderState = new Map();
-  const WANDER_BOUNDS = {minX:-9, maxX:9, minZ:-2, maxZ:8};
-  // Furniture the strollers walk around: the low table, the two side seats and the planters.
-  const WANDER_OBSTACLES = [{x:.5,z:-.83,r:2.3},{x:-7,z:3.7,r:2.1},{x:7,z:3.7,r:2.1},{x:-9,z:2.8,r:1.4},{x:9.3,z:2.5,r:1.5},{x:-7,z:7.5,r:1.2},{x:7,z:7.7,r:1.2}];
-  let pairAnchors = [];
-  function pickWanderTarget(from, occupied) {
-    for(let i=0;i<30;i++){
-      const x=WANDER_BOUNDS.minX+Math.random()*(WANDER_BOUNDS.maxX-WANDER_BOUNDS.minX);
-      const z=WANDER_BOUNDS.minZ+Math.random()*(WANDER_BOUNDS.maxZ-WANDER_BOUNDS.minZ);
-      if(WANDER_OBSTACLES.some(o=>Math.hypot(o.x-x,o.z-z)<o.r))continue;
-      if(occupied.some(p=>Math.hypot(p.x-x,p.z-z)<2.2))continue;
-      if(Math.hypot(from.x-x,from.z-z)<2.6)continue; // Worth walking to, not a shuffle in place.
-      return {x,z};
-    }
-    return null;
-  }
-  function strollOccupied(exceptId) {
-    const points=pairAnchors.slice();
-    for(const [id,a] of avatars)if(id!==exceptId)points.push({x:a.target.x,z:a.target.z});
-    return points;
-  }
-  // Pauses face roughly back toward the middle of the room, so nobody stands staring at a wall.
-  const glanceYaw = (x,z) => Math.atan2(-x,1.1-z)+(Math.random()-.5)*1.4;
-  function stroll(id, a, now) {
-    const here=a.model.root.position;
-    let w=wanderState.get(id);
-    if(!w){w={phase:'pause',until:now+400+Math.random()*3600,glanceAt:now+2000+Math.random()*3000,x:here.x,z:here.z,yaw:a.yaw};wanderState.set(id,w);}
-    if(w.phase==='walk'&&Math.hypot(w.x-here.x,w.z-here.z)<.1) {
-      w.phase='pause';w.yaw=glanceYaw(w.x,w.z);
-      w.until=now+(a.actor.active?2600:5200)+Math.random()*7000;w.glanceAt=now+2400+Math.random()*3200;
-    }
-    if(w.phase==='pause') {
-      if(now>=w.glanceAt){w.yaw=glanceYaw(w.x,w.z);w.glanceAt=now+2400+Math.random()*3200;}
-      if(now>=w.until){const next=pickWanderTarget(here,strollOccupied(id));if(next){w.phase='walk';w.x=next.x;w.z=next.z;}else w.until=now+1400;}
-    }
-    a.target.set(w.x,.11,w.z);a.yaw=w.yaw;
+  // Social attention is visual only; it never invents dialogue or queues model work.
+  function attend(id,a){
+    const partner=a.actor.partner&&avatars.get(a.actor.partner);
+    const speaker=[...avatars.values()].find(b=>b!==a&&(audioSpeaker?b.actor.connection.id===audioSpeaker.connectionId:b.actor.mode==='speaking'));
+    const neighbor=[...avatars.entries()].filter(([other,b])=>other!==id&&!b.paired).sort(([,b],[,c])=>a.model.root.position.distanceToSquared(b.model.root.position)-a.model.root.position.distanceToSquared(c.model.root.position))[0]?.[1];
+    const target=partner||(a.paired?null:speaker||neighbor);
+    if(target){const here=a.model.root.position,there=target.model.root.position;a.yaw=Math.atan2(there.x-here.x,there.z-here.z);}
+    return !!target;
   }
 
   function resetCamera() {
@@ -100,7 +71,7 @@ function startRoom() {
 
   function dropActor(id) {
     const a=avatars.get(id);if(!a)return;
-    a.model.dispose();a.label.remove();a.speech.remove();a.selection.geometry.dispose();a.selection.material.dispose();scene.remove(a.selection);avatars.delete(id);wanderState.delete(id);
+    a.model.dispose();a.label.remove();a.speech.remove();a.selection.geometry.dispose();a.selection.material.dispose();scene.remove(a.selection);avatars.delete(id);
     if(following===id)resetCamera();if(selected===id)closePanel();
   }
   function dropPair(id) {const v=pairVisuals.get(id);if(!v)return;v.line.geometry.dispose();v.line.material.dispose();scene.remove(v.line);pairVisuals.delete(id);}
@@ -121,10 +92,10 @@ function startRoom() {
     const assignments = new Map();
     interactions.pairs.forEach((p,i)=>{
       const base=CONVERSATION_SPOTS[i%CONVERSATION_SPOTS.length], depth=Math.floor(i/CONVERSATION_SPOTS.length)*3.8;
-      assignments.set(p.first,{x:base.x-1.55,z:base.z+depth,faceX:base.x+1.55,faceZ:base.z+1.9+depth});
+      assignments.set(p.first,{x:base.x-1.55,z:base.z+depth,faceX:base.x+1.55,faceZ:base.z+depth});
       assignments.set(p.second,{x:base.x+1.55,z:base.z+depth,faceX:base.x-1.55,faceZ:base.z+1.9+depth});
     });
-    const pairedIds=new Set(assignments.keys());pairAnchors=[...assignments.values()].map(p=>({x:p.x,z:p.z}));
+    const pairedIds=new Set(assignments.keys());
     const idleActors=[...interactions.actors.keys()].filter(id=>!assignments.has(id));
     const columns=Math.min(3,idleActors.length),occupied=[...assignments.values()];
     let slot=0;
@@ -147,14 +118,15 @@ function startRoom() {
         const speech=document.createElement('div');speech.className='label speech-label';$('labels').append(speech);
         const selection=new THREE.Mesh(new THREE.RingGeometry(.8,.87,48),new THREE.MeshBasicMaterial({color:0x5383ef,transparent:true,opacity:.65,side:THREE.DoubleSide}));
         selection.rotation.x=-Math.PI/2;selection.visible=false;scene.add(selection);
-        a={model,label,speech,selection,target:new THREE.Vector3(),yaw:0,actor,speechId:null,paired:false,walk:0};avatars.set(id,a);
+        a={model,label,speech,selection,target:new THREE.Vector3(),yaw:0,actor,speechId:null,paired:false,walk:0,arrivedAt:Date.now(),wasPaired:false};avatars.set(id,a);
       }
       a.actor=actor;
       a.model.setConnectionState({owner:actor.connection.member_id||actor.connection.owner_id||actor.connection.owner_name||id,status:actor.connection.status});
       const seat=assignments.get(id);a.paired=pairedIds.has(id);
       a.target.set(seat.x,.11,seat.z);a.yaw=Math.atan2(seat.faceX-seat.x,seat.faceZ-seat.z);a.model.root.scale.setScalar(actor.active?1:.9);
       if(isNew){a.model.root.position.copy(a.target);a.model.root.rotation.y=a.yaw;}
-      if(a.paired)wanderState.delete(id); // The next stroll starts from wherever the conversation leaves them.
+      if(a.paired&&!a.wasPaired)a.arrivedAt=Date.now();
+      a.wasPaired=a.paired;
       a.label.querySelector('.name').textContent=actor.connection.name;a.label.querySelector('.actor-status').textContent=actor.status;a.label.dataset.mode=actor.mode;
       const speechId=actor.reply?.id||null;
       if(a.speechId!==speechId) {
@@ -180,7 +152,18 @@ function startRoom() {
     renderRoomStatus();
     messages.update(state);
     audio.update(state);
+    requestFinalReview();
+    const recaps=(state.master_observations||[]).filter(o=>o.result.final).length;
+    $('masterButton').textContent=recaps?`Room insights (${recaps})`:'Room insights';
     if(selected)renderPanel();
+  }
+
+  const requestedReviews=new Set();
+  function requestFinalReview(){
+    if(preview||state.room.role!=='host'||!state.master_observer_enabled)return;
+    const c=(state.conversations||[]).find(c=>c.status==='completed'&&c.turn_count>=2&&!requestedReviews.has(c.id)&&!(state.master_observations||[]).some(o=>o.conversation_id===c.id&&o.through_turn===c.turn_count));
+    if(!c)return;requestedReviews.add(c.id);
+    fetch('/api/owner/conversations/'+encodeURIComponent(c.id)+'/observe',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:'{}'}).then(r=>{if(!r.ok)console.warn('Final conversation review unavailable');}).catch(()=>{});
   }
 
   function closePanel() {selected=null;$('panel').hidden=true;for(const a of avatars.values())a.selection.visible=false;}
@@ -190,7 +173,7 @@ function startRoom() {
     let content='';
     if(selected==='master') {
       const observations=(state.master_observations||[]).slice(0,5);
-      content=`<span class="panel-eyebrow">The room observer</span><h2>Noticing the connections.</h2><p>The Muses speak to each other. The observer collects the useful things they discover.</p>${observations.map(o=>`<article class="msg"><b>${esc(o.result.summary)}</b>${(o.result.overlaps||[]).map(x=>`<p>${esc(x.claim)}</p>${(x.evidence||[]).map(e=>`<blockquote>${esc(e.name)}: ${esc(e.text)}</blockquote>`).join('')}`).join('')}${o.result.next_step?`<p>${esc(o.result.next_step)}</p>`:''}</article>`).join('')||`<p class="panel-empty">${preview?'This is a model and animation preview. Live room insights appear here when your Muses share replies.':'No observations yet. Start a Muse conversation to give the room something to discover.'}</p>`}`;
+      content=`<span class="panel-eyebrow">The room observer</span><h2>Noticing the connections.</h2><p>The Muses speak to each other. The observer collects the useful things they discover.</p>${observations.map(o=>`<article class="msg"><small>${o.result.final?'Conversation recap':'In progress'}</small><b>${esc(o.result.summary)}</b>${(o.result.overlaps||[]).map(x=>`<p>${esc(x.claim)}</p>${(x.evidence||[]).map(e=>`<blockquote>${esc(e.name)}: ${esc(e.text)}</blockquote>`).join('')}`).join('')}${(o.result.action_items||[]).length?`<h3>Suggested actions for owners</h3><ol>${o.result.action_items.map(a=>`<li><b>${esc(a.owners.map(p=>p.owner_name).join(' & '))}</b><p>${esc(a.action)}</p><p class="meta">${esc(a.why)}</p></li>`).join('')}</ol><p class="meta">Suggestions only. Nothing has been scheduled or sent.</p>`:o.result.next_step?`<p>${esc(o.result.next_step)}</p>`:''}</article>`).join('')||`<p class="panel-empty">${preview?'This is a model and animation preview. Live room insights appear here when your Muses share replies.':!state.master_observer_enabled?'The moderator needs a model API key configured on the server before it can create conversation recaps.':'No observations yet. Completed Muse conversations will appear here with shared interests and suggested actions.'}</p>`}`;
     } else {
       const actor=interactions.actors.get(selected);if(!actor){closePanel();return;}
       const c=actor.connection,p=state.profiles?.find(p=>p.connection_id===c.id)?.profile||state.members?.find(m=>m.id===c.member_id)?.profile;
@@ -244,10 +227,10 @@ function startRoom() {
       }
     }
     for(const [id,a] of avatars) {
-      if(!a.paired){if(calm)a.target.copy(a.model.root.position);else stroll(id,a,now);} // Pausing motion leaves strollers where they stand.
+      const attentive=attend(id,a);
       const position=a.model.root.position, gap=Math.hypot(a.target.x-position.x,a.target.z-position.z);
       if(calm||gap<=.02)position.copy(a.target);
-      else {const advance=Math.min(gap,(a.paired?2.4:.95)*dt);position.x+=(a.target.x-position.x)/gap*advance;position.z+=(a.target.z-position.z)/gap*advance;position.y=a.target.y;}
+      else {const advance=Math.min(gap,1.15*dt);position.x+=(a.target.x-position.x)/gap*advance;position.z+=(a.target.z-position.z)/gap*advance;position.y=a.target.y;}
       const yaw=gap>.25?Math.atan2(a.target.x-position.x,a.target.z-position.z):a.yaw;
       const delta=Math.atan2(Math.sin(yaw-a.model.root.rotation.y),Math.cos(yaw-a.model.root.rotation.y));
       a.model.root.rotation.y+=delta*(calm?1:1-Math.exp(-dt*(gap>.25?6:2.4)));
@@ -255,7 +238,7 @@ function startRoom() {
       const speaking=!!audioSpeaker&&(a.actor.connection.id===audioSpeaker.connectionId||a.actor.connection.member_id===audioSpeaker.memberId&&!!audioSpeaker.memberId);
       const audioEnabled=$('roomAudioToggle').getAttribute('aria-pressed')==='true';
       a.label.classList.toggle('audio-speaking',speaking);
-      a.model.animate(t/1000,{motion:speaking?'speaking':audioEnabled&&a.actor.mode==='speaking'?'listening':a.actor.mode,walking:calm?0:a.walk,energy:speaking?1:a.actor.active?1:.2,reducedMotion:calm});
+      a.model.animate(t/1000,{motion:speaking?'speaking':gap<.25&&Date.now()-a.arrivedAt<2200?'greeting':audioEnabled&&a.actor.mode==='speaking'?'listening':a.actor.mode==='idle'&&attentive?'listening':a.actor.mode,walking:calm?0:a.walk,energy:speaking?1:a.actor.active?1:.2,reducedMotion:calm});
       a.selection.position.copy(a.model.root.position);a.selection.position.y=.16;
     }
     observer.animate(t/1000,{motion:'idle',energy:.5,reducedMotion:calm});
@@ -295,7 +278,7 @@ function startRoom() {
 // This local-only loop never sends messages or calls the room API.
 function previewState(now,start) {
   const cycle=Math.floor((now-start)/28000),offset=(now-start)%28000,base=start+cycle*28000,second=offset>=14000,speaker=second?'preview-satchel':'preview-scarf';
-  const connections=[{id:'preview-scarf',name:'Scarf Muse',status:'connected',mine:true},{id:'preview-satchel',name:'Satchel Muse',status:'connected'},{id:'preview-wanderer',name:'Wandering Muse',status:'connected'}],last=base+(second?14000:0);
+  const connections=[{id:'preview-scarf',name:'Scarf Muse',status:'connected',mine:true},{id:'preview-satchel',name:'Satchel Muse',status:'connected'},{id:'preview-wanderer',name:'Curious Muse',status:'connected'}],last=base+(second?14000:0);
   return {room:{id:'preview',name:'Animation preview'},connections:connections.map(c=>({...c,member_id:c.id})),members:connections.map(c=>({id:c.id,name:c.name,you:!!c.mine})),profiles:[],master_observations:[],responses:[{id:`preview-${cycle}-${second?2:1}`,task_id:'preview-answer',connection_id:speaker,text:second?'I’m exploring that too. We could compare ideas and build something small together.':'What is your person curious about? Maybe we can find something to work on together.',created_at:last}],conversations:[{id:'preview-conversation',first_id:'preview-scarf',second_id:'preview-satchel',status:'active',topic:'Finding something in common',turn_count:second?2:1,max_turns:4}],tasks:[{id:'preview-answer',round_id:'preview-conversation',kind:'conversation',state:'answered',connection_id:speaker,created_at:last},{id:'preview-next',round_id:'preview-conversation',kind:'conversation',state:'fetched',fetched_at:last,connection_id:second?'preview-scarf':'preview-satchel',created_at:last}]};
 }
 try{startRoom();}catch(error){console.error('Room renderer failed:',error);$('sceneError').hidden=false;}
