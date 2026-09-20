@@ -13,7 +13,11 @@
     { "pattern": "muser.work", "custom_domain": true },
     { "pattern": "www.muser.work", "custom_domain": true }
   ],
-  "vars": { "PUBLIC_ORIGIN": "https://muser.work" },
+  // ELASTIC_URL is an endpoint, not a credential; ELASTIC_API_KEY and ELEVENLABS_API_KEY are set with `wrangler secret put`.
+  "vars": {
+    "PUBLIC_ORIGIN": "https://muser.work",
+    "ELASTIC_URL": "https://my-vectordb-project-ac8803.es.us-east4.gcp.elastic.cloud:443"
+  },
   "assets": {
     "directory": "../public",
     "binding": "ASSETS",
