@@ -4,10 +4,10 @@
   const icon = name => `<svg class="ui-icon" aria-hidden="true"><use href="/commons-icons.svg#${name}"></use></svg>`;
   const page = document.body.dataset.page === 'scene' ? 'home' : document.body.dataset.page;
   const roomLink = view => view === 'home' ? '/' : view === 'messages' ? '/room3d.html#messages' : `/connect.html#${view}`;
-  const link = (view, label, symbol) => `<a href="${view === 'profile' ? '/profile.html' : view === 'social' ? '/social.html' : roomLink(view)}" data-nav="${view}" ${view === page ? 'class="active" aria-current="page"' : ''}>${icon(symbol)}<span>${label}</span></a>`;
+  const link = (view, label, symbol) => `<a href="${view === 'profile' ? '/profile.html' : view === 'social' ? '/social.html' : view === 'provenance' ? '/integrity.html' : roomLink(view)}" data-nav="${view}" ${view === page ? 'class="active" aria-current="page"' : ''}>${icon(symbol)}<span>${label}</span></a>`;
   const rail = document.createElement('aside');
   rail.className = 'app-rail';
-  rail.innerHTML = `<a class="brand-mark" href="/" aria-label="Muser home">${icon('mark')}</a><nav aria-label="Main navigation">${link('home', 'Home', 'home')}${link('social', 'Social', 'globe')}${link('people', 'People', 'people')}${link('spaces', 'Spaces', 'spaces')}${link('messages', 'Messages', 'message')}${link('profile', 'Profile', 'profile')}</nav><div class="rail-bottom">${link('settings', 'Settings', 'settings')}</div>`;
+  rail.innerHTML = `<a class="brand-mark" href="/" aria-label="Muser home">${icon('mark')}</a><nav aria-label="Main navigation">${link('home', 'Home', 'home')}${link('social', 'Social', 'globe')}${link('people', 'People', 'people')}${link('spaces', 'Spaces', 'spaces')}${link('messages', 'Messages', 'message')}${link('provenance', 'Provenance', 'spark')}${link('profile', 'Profile', 'profile')}</nav><div class="rail-bottom">${link('settings', 'Settings', 'settings')}</div>`;
   document.body.prepend(rail);
   const header = document.querySelector('.topbar');
   if (header) {

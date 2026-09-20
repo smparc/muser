@@ -4,14 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Who wrote this room · Muser</title>
+<link rel="icon" href="/favicon.svg">
 <link rel="stylesheet" href="/commons.css">
 <link rel="stylesheet" href="/connect.css">
 <link rel="stylesheet" href="/integrity.css">
 </head>
-<body>
+<body data-page="provenance">
 <header class="topbar">
   <div class="brand"><a href="/connect.html">Muser</a> <span class="muted">· provenance</span></div>
-  <div class="topbar-right"><span class="muted small" id="ownerName"></span> <a class="link" href="/connect.html">Back to the room</a></div>
+  <span class="who"><span id="ownerName"></span> <button id="signOut" class="link" hidden>Sign out</button></span>
 </header>
 
 <main class="page" id="page" hidden>
@@ -54,6 +55,7 @@
 <p id="error" class="page error" hidden></p>
 
 <script src="/common.js"></script>
+<script src="/shell.js"></script>
 <script src="/integrity.js"></script>
 </body>
 </html>
