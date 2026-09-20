@@ -7,26 +7,6 @@ let issued = null;
 // Whether the owner opened the form to connect another Muse (it is always open when they have none).
 let connectOpen = false;
 const directMuseDrafts = new Map();
-// The voice list is a live call to the speech provider, so it is loaded once and reused
-// rather than riding along with the 5s dashboard poll.
-let voiceCatalog = null, voicesLoading = false;
-function loadVoices() {
-  if (voiceCatalog || voicesLoading) return;
-  voicesLoading = true;
-  api('/voices').then(r => { voiceCatalog = r; renderMyMuse(); }).catch(() => { voiceCatalog = {available: false, voices: []}; })
-    .finally(() => { voicesLoading = false; });
-}
-// One <select> per Muse. "Chosen for me" keeps the automatic assignment that picks a distinct
-// voice per person in each room.
-function voicePicker(museId) {
-  if (!voiceCatalog) return '<p class="muted small voice-row">Loading voices…</p>';
-  if (!voiceCatalog.available) return '';
-  const current = (state.my_muses ?? []).find(m => m.id === museId)?.voice_id ?? '';
-  const options = ['<option value="">Chosen for me</option>']
-    .concat(voiceCatalog.voices.map(v => `<option value="${esc(v.id)}"${v.id === current ? ' selected' : ''}>${esc(v.name)}${v.category && v.category !== 'premade' ? ' · ' + esc(v.category) : ''}</option>`));
-  const known = !current || voiceCatalog.voices.some(v => v.id === current);
-  return `<label class="voice-row">Voice<select data-voice="${esc(museId)}">${options.join('')}</select></label>${known ? '' : '<p class="muted small">This Muse is set to a voice the server no longer offers. Pick another.</p>'}`;
-}
 
 async function action(button, fn) {
   if (button) button.disabled = true; clearError();
@@ -246,7 +226,6 @@ function renderMyMuse() {
   const museHtml = mine.map(c => {
     const l = liveness(c);
     return `<div class="muse-row"><div class="muse-row-main"><div><div class="muse-name"><span class="dot ${l.dot}"></span>${esc(c.name)}</div><div class="muted small">${esc(l.text)} · ${c.key_of ? 'same key as your other rooms · ' : ''}key renews while it checks in</div></div>
-      ${voicePicker(c.key_of || c.id)}
       <div class="muse-buttons"><button type="button" data-sync="${esc(c.id)}" title="Ask this Muse to gather facts about you from its connected apps">Sync from my apps</button><button type="button" data-mykey="${esc(c.id)}">New key</button><button type="button" class="danger" data-mydisconnect="${esc(c.id)}">Disconnect</button></div>
       <form class="direct-muse-form" data-direct-muse="${esc(c.id)}"><label>Message ${esc(c.name)}<textarea name="prompt" maxlength="1500" placeholder="Ask your Muse to help with something..." required></textarea></label><button class="primary" type="submit">Send to ${esc(c.name)}</button></form></div></div>${myFacts(c)}`;
   }).join('');
@@ -273,14 +252,7 @@ function renderMyMuse() {
   document.querySelectorAll('[data-bring]').forEach(b => b.onclick = () => action(b, () => api('/connections', 'POST', {link: b.dataset.bring, room_id: state.room.id})));
   $('connectForm').hidden = (hasMuse || away.length > 0) && !connectOpen;
   $('showConnect').hidden = !(hasMuse || away.length) || connectOpen;
-  loadVoices();
-  document.querySelectorAll('[data-voice]').forEach(sel => sel.onchange = () => {
-    const muse = sel.dataset.voice, voice = sel.value || null;
-    sel.disabled = true; clearError();
-    api('/muses/' + muse + '/voice', 'PUT', {voice_id: voice})
-      .catch(err => { showError(err); sel.value = (state.my_muses ?? []).find(x => x.id === muse)?.voice_id ?? ''; })
-      .finally(() => { sel.disabled = false; refresh(); });
-  });
+  $('voiceHint').hidden = !hasMuse;
   document.querySelectorAll('[data-sync]').forEach(b => b.onclick = () => action(b, async () => { await api('/connections/' + b.dataset.sync + '/context-sync', 'POST', {}); b.textContent = 'Asked · runs on its next check'; }));
   bindFactButtons($('myAgents'));
   document.querySelectorAll('[data-mykey]').forEach(b => b.onclick = () => {
