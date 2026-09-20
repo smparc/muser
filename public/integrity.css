@@ -1,0 +1,23 @@
+/* Provenance page: counters, people, match evidence, message labels. */
+.page{max-width:860px;margin:24px auto;padding:0 16px}
+.lede{color:var(--muted);font-size:14px;line-height:1.6;margin:0 0 20px;max-width:64ch}
+.counters{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}
+.counter{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:grid;gap:3px}
+.counter b{font-size:24px;font-weight:650;line-height:1.1}
+.counter span{font-size:12px;color:var(--muted)}
+.counter.good b{color:#188258}.counter.warn b{color:#8a6110}
+.row{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;padding:11px 0;border-top:1px solid var(--line)}
+.row:first-of-type{border-top:none}
+.row-right{flex:none;text-align:right}
+.message .evidence-text{margin-top:4px}
+.evidence-text{font-size:13px;line-height:1.55;color:#33405a;overflow-wrap:anywhere}
+.match{border-top:1px solid var(--line);padding:11px 0}
+.match:first-of-type{border-top:none}
+.match summary{cursor:pointer;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:14px}
+.evidence{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:10px}
+.evidence li{background:#f7f9fd;border-radius:12px;padding:10px 12px}
+.evidence-head{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;margin-bottom:4px}
+.written.none{background:#f1f3f7;color:#6b7686}
+.badge.ok{background:#eaf9f2;color:#188258}
+.limits p{color:var(--muted);line-height:1.6;max-width:70ch}
+@media (max-width:560px){.row{flex-direction:column;gap:6px}.row-right{text-align:left}}
