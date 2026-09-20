@@ -93,6 +93,7 @@ function render() {
   renderIssueStatus();
   renderDiagnostics();
   window.renderCommons?.(state);
+  window.roomAudio?.update(state);
 }
 
 // ---------- Room header & switcher ----------

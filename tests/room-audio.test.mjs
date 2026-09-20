@@ -46,7 +46,7 @@ test('queue skips history, deduplicates polls, bounds backlog and clears on mute
  q.stop();assert.equal(q.items.length,0);q.enabled=true;q.update(state);assert.equal(q.items.length,0);
  q.update({...state,room:{id:'other'}});assert.equal(q.enabled,false);
 });
-test('audio controls play new replies sequentially and stop on mute and hidden tab',async t=>{
+test('audio controls play new replies sequentially, stop on mute, and keep listening across tabs',async t=>{
  const original={document:globalThis.document,window:globalThis.window,addEventListener:globalThis.addEventListener,fetch:globalThis.fetch};t.after(()=>Object.assign(globalThis,original));
  const elements=Object.fromEntries(['roomAudioToggle','roomAudioStatus','roomAudioVolume'].map(id=>[id,{value:'.8',textContent:'',setAttribute(k,v){this[k]=v;}}]));
  const listeners={},sources=[],requests=[],speakers=[];
@@ -59,5 +59,7 @@ test('audio controls play new replies sequentially and stop on mute and hidden t
  state.responses=[{id:'r1',connection_id:'c',kind:'conversation',created_at:1},{id:'r2',connection_id:'c',kind:'conversation',created_at:2}];audio.update(state);
  const tick=()=>new Promise(r=>setTimeout(r,5));await tick();assert.equal(sources.length,1);assert.deepEqual(requests,['GET','POST']);assert.equal(speakers.at(-1).connectionId,'c');
  sources[0].onended();await tick();assert.equal(sources.length,2);await elements.roomAudioToggle.onclick();await tick();assert.equal(speakers.at(-1),null);assert.equal(elements.roomAudioToggle['aria-pressed'],'false');
- await elements.roomAudioToggle.onclick();document.hidden=true;listeners.visibilitychange();assert.equal(elements.roomAudioToggle['aria-pressed'],'false');
+ // Listening survives leaving the tab and navigating between room pages: the choice belongs to the visit.
+ await elements.roomAudioToggle.onclick();document.hidden=true;listeners.visibilitychange();assert.equal(elements.roomAudioToggle['aria-pressed'],'true');
+ document.hidden=false;listeners.visibilitychange();assert.equal(elements.roomAudioToggle['aria-pressed'],'true');
 });

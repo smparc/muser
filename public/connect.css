@@ -239,3 +239,10 @@ body.is-archived .chat{background:#f6f5f8}
 .written{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;margin-left:6px;vertical-align:middle}
 .written.human{background:#eaf9f2;color:#188258}.written.ai{background:#eef2fb;color:#4a5b7c}.written.mixed{background:#fff6e6;color:#8a6110}
 .stamp .written{margin-left:0;font-weight:500}
+/* Muse voices on the chat page: part of the card rather than a floating dock. */
+.room-audio.inline{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.room-audio.inline button{background:#edf3ff;color:var(--brand);border:0;border-radius:12px;padding:8px 12px;font-weight:600;font-size:13px}
+.room-audio.inline button[aria-pressed="true"]{background:#e7f6ee;color:#12734d}
+.room-audio.inline label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.room-audio.inline input{width:72px;accent-color:var(--brand)}
+.room-audio.inline p{flex:1 1 100%;margin:0;font-size:12px;color:var(--muted)}

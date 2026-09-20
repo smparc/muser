@@ -15,19 +15,28 @@ export class AudioReplyQueue {
   stop(){this.enabled=false;this.items=[];}
 }
 
+// The choice to listen belongs to the visit, not the page: it is remembered across navigation and restored on the
+// next room view. Browsers still require a gesture before audio may start, so when a restore is blocked the room
+// says so and the next click anywhere resumes it.
+const WANT_KEY='muser.audio.on',VOLUME_KEY='muser.audio.volume';
+const remember=(key,value)=>{try{localStorage.setItem(key,value);}catch{}};
+const recall=key=>{try{return localStorage.getItem(key);}catch{return null;}};
+
 export function createRoomAudio({preview=false,onSpeaker=()=>{}}={}){
   const button=document.getElementById('roomAudioToggle'),status=document.getElementById('roomAudioStatus'),volume=document.getElementById('roomAudioVolume');
-  const queue=new AudioReplyQueue();let state=null,context=null,gain=null,source=null,abort=null,version=0,running=false,enabling=false;
+  const queue=new AudioReplyQueue();let state=null,context=null,gain=null,source=null,abort=null,version=0,running=false,enabling=false,resumeOnGesture=null;
   const say=text=>{if(status.textContent!==text)status.textContent=text;};
-  function stop(message='Room audio off'){
+  // forget=false keeps the listener's choice for the next page; only muting or a dead configuration clears it.
+  function stop(message='Room audio off',{forget=true}={}){
     version++;queue.stop();abort?.abort();abort=null;source?.stop();source=null;onSpeaker(null);
+    if(forget)remember(WANT_KEY,'0');
     button.setAttribute('aria-pressed','false');button.textContent='Enable room audio';say(message);
   }
   async function pump(){
-    if(running||!queue.enabled||document.hidden)return;
+    if(running||!queue.enabled)return;
     running=true;const turn=version;
     try{
-      while(queue.enabled&&queue.items.length&&turn===version&&!document.hidden){
+      while(queue.enabled&&queue.items.length&&turn===version){
         const reply=queue.items.shift();say('Preparing voice…');abort=new AbortController();
         let response;
         for(let attempt=0;attempt<4;attempt++){
@@ -39,7 +48,7 @@ export function createRoomAudio({preview=false,onSpeaker=()=>{}}={}){
         }
         if(!response.ok){const error=await response.json().catch(()=>({}));throw Error(error.message||'Audio unavailable. Text chat is still available.');}
         const buffer=await context.decodeAudioData(await response.arrayBuffer());
-        if(turn!==version||!queue.enabled||document.hidden)return;
+        if(turn!==version||!queue.enabled)return;
         const c=state.connections.find(c=>c.id===reply.connection_id);
         source=context.createBufferSource();source.buffer=buffer;source.connect(gain);
         onSpeaker({connectionId:reply.connection_id,memberId:c?.member_id});say(`${c?.name||reply.name||'Muse'} is speaking`);
@@ -50,9 +59,8 @@ export function createRoomAudio({preview=false,onSpeaker=()=>{}}={}){
     }catch(error){if(turn===version)stop(error.name==='AbortError'?'Audio paused. Enable to resume.':error.message);}
     finally{running=false;if(queue.enabled&&queue.items.length)void pump();}
   }
-  button.onclick=async()=>{
-    if(queue.enabled){stop();return;}
-    if(enabling){say('Connecting room audio… Please wait.');return;}
+  async function enable({restoring=false}={}){
+    if(queue.enabled||enabling)return;
     if(!state){say('Your room has not loaded. Sign in if prompted, then refresh the page.');return;}
     if(preview){say('Voice playback is available in your real room.');return;}
     if(state.room.archived_at){say('This room is archived. Open an active room to enable voices.');return;}
@@ -67,18 +75,39 @@ export function createRoomAudio({preview=false,onSpeaker=()=>{}}={}){
       if(!response.ok)throw Error(config.message||'Unable to enable room audio.');
       if(!config.available)throw Error('Voices need the ElevenLabs server key. Text chat is ready.');
       if(!config.daily_character_limit)throw Error('Room audio is disabled by the daily character limit.');
-      queue.enabled=true;button.setAttribute('aria-pressed','true');button.textContent='Mute room';say('Audio is on. Waiting for a new Muse reply.');
-    }catch(error){if(turn===version)stop(error.message);}
+      queue.enabled=true;remember(WANT_KEY,'1');
+      button.setAttribute('aria-pressed','true');button.textContent='Mute room';
+      say(restoring?'Audio is back on. Waiting for a new Muse reply.':'Audio is on. Waiting for a new Muse reply.');
+    }catch(error){
+      // A browser that refuses to start audio without a gesture is not a failure: the next click anywhere resumes it.
+      if(turn!==version)return;
+      if(restoring&&/could not start audio/i.test(error.message)){stop('Audio is still on for this visit. Click anywhere to resume it.',{forget:false});waitForGesture();}
+      else stop(error.message);
+    }
     finally{enabling=false;button.setAttribute('aria-busy','false');}
-  };
-  volume.oninput=()=>{if(gain)gain.gain.value=Number(volume.value);};
-  document.addEventListener('visibilitychange',()=>{if(document.hidden&&(queue.enabled||enabling))stop('Audio paused while away. Enable to resume.');});
-  addEventListener('pagehide',()=>{stop();void context?.suspend();});
+  }
+  function waitForGesture(){
+    if(resumeOnGesture)return;
+    resumeOnGesture=()=>{document.removeEventListener('pointerdown',resumeOnGesture);document.removeEventListener('keydown',resumeOnGesture);resumeOnGesture=null;if(recall(WANT_KEY)==='1')void enable({restoring:true});};
+    document.addEventListener('pointerdown',resumeOnGesture);document.addEventListener('keydown',resumeOnGesture);
+  }
+  button.onclick=()=>{if(queue.enabled){stop();return;}if(enabling){say('Connecting room audio… Please wait.');return;}return enable();};
+  volume.value=recall(VOLUME_KEY)??volume.value;
+  volume.oninput=()=>{remember(VOLUME_KEY,volume.value);if(gain)gain.gain.value=Number(volume.value);};
+  // Leaving the tab pauses playback rather than ending the session; coming back picks the queue up again.
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&queue.enabled&&queue.items.length)void pump();});
+  addEventListener('pagehide',()=>{stop('Room audio off',{forget:false});void context?.suspend();});
   return {
-    update(next){state=next;if(queue.update(next))stop('Enable audio to hear new Muse replies. Earlier messages stay silent.');
-      if(preview)say('Preview is silent. Open your own room to enable Muse voices.');
-      else if(next.room.archived_at)stop('Room archived · audio paused');else if(queue.items.length)void pump();},
-    clear(message='Loading your room before audio can be enabled…'){stop(message);state=null;queue.room=null;queue.seen.clear();},
-    pause(){if(queue.enabled||enabling)stop('Connection interrupted. Enable audio after reconnecting.');},
+    update(next){
+      state=next;
+      if(queue.update(next))stop('Enable audio to hear new Muse replies. Earlier messages stay silent.',{forget:false});
+      if(preview){say('Preview is silent. Open your own room to enable Muse voices.');return;}
+      if(next.room.archived_at){stop('Room archived · audio paused',{forget:false});return;}
+      // Carried over from the page they came from: no second click needed unless the browser demands a gesture.
+      if(!queue.enabled&&!enabling&&recall(WANT_KEY)==='1')void enable({restoring:true});
+      else if(queue.items.length)void pump();
+    },
+    clear(message='Loading your room before audio can be enabled…'){stop(message,{forget:false});state=null;queue.room=null;queue.seen.clear();},
+    pause(){if(queue.enabled||enabling)stop('Connection interrupted. Enable audio after reconnecting.',{forget:false});},
   };
 }
