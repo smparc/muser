@@ -20,7 +20,8 @@
     // The free tier caps requests per day per model. gemini-3.6-flash and gemini-3.5-flash are spent on this key,
     // so the master runs on flash-lite, which has its own daily allowance. Drop these two back once billing is on.
     "GEMINI_MODEL": "gemini-3.5-flash-lite",
-    "GEMINI_FALLBACK_MODEL": "gemini-3.5-flash"
+    // The fallback must also be a model with allowance left: gemini-3.5-flash answers 429 on this key today.
+    "GEMINI_FALLBACK_MODEL": "gemini-3.1-flash-lite"
   },
   "assets": {
     "directory": "../public",
