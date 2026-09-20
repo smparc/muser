@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {handle} from '../lib/api.mjs';
-import {observeConversation} from '../lib/master-observer.mjs';
+import {observeConversation,groundedObservation} from '../lib/master-observer.mjs';
 import {onboard,sqliteD1,origin} from './helpers.mjs';
 
 test('master observes only approved room evidence and keeps Muses talking directly',async()=>{
@@ -41,5 +41,26 @@ test('master observes only approved room evidence and keeps Muses talking direct
   assert.equal(state.master_observations.length,1);
   assert.equal(state.master_observations[0].result.overlaps[0].claim,'Both owners shared an interest in robotics.');
   assert.equal((await call('/api/v1/me/tasks','GET',undefined,a.access_token)).body.tasks.filter(t=>t.kind==='conversation').length,1);
+  const scheduled=[];
+  for(const [i,c] of [a,b].entries()){
+   const t=(await call('/api/v1/me/tasks','GET',undefined,c.access_token)).body.tasks.find(x=>x.kind==='conversation');
+   assert.equal((await call(`/api/v1/tasks/${t.id}/response`,'POST',{client_message_id:`final-${i}`,nonce:t.nonce,text:'Comparing robot sensor notes would be a useful first step.'},c.access_token,{onObserve:(...args)=>scheduled.push(args)})).status,201);
+  }
+  assert.equal(scheduled.at(-1)[1],4);
+  const final=await observeConversation(h.db,started.conversation_id,4,{provider:{json:async request=>{
+   const input=JSON.parse(request.input);assert.equal(input.status,'completed');assert.equal(input.participants.length,2);assert.equal(input.participants[0].owner_name,'Host');
+   return {summary:'Both owners are exploring robotics.',overlaps:[{claim:'A shared robotics interest',evidence_ids:expectedIds}],action_items:[{action:'Exchange one page of sensor notes and choose a prototype to compare.',why:'Both discussed robotics prototypes.',participant_ids:[a.connection_id,b.connection_id],evidence_ids:expectedIds}]};
+  }}});
+  assert.equal(final.final,true);assert.equal(final.action_items.length,1);assert.equal(final.action_items[0].owners.length,2);
+  const cached=await observeConversation(h.db,started.conversation_id,4,{provider:{json:()=>{throw Error('Should reuse the final review');}}});assert.deepEqual(cached,final);
  }finally{h.cleanup();}
+});
+
+test('owner actions require completed conversation, known owners and evidence from both Muses',()=>{
+ const sources=new Map([['a',{connection_id:'a'}],['b',{connection_id:'b'}]]),participants=[{connection_id:'a',owner_name:'Alex'},{connection_id:'b',owner_name:'Sam'}];
+ const action={action:'Compare notes.',why:'Shared project interests.',participant_ids:['a','b'],evidence_ids:['a','b']};
+ const raw={overlaps:[{claim:'Shared interests',evidence_ids:['a','b']}],action_items:[action,{...action,participant_ids:['outsider']},{...action,evidence_ids:['a','invented']}]};
+ assert.equal(groundedObservation(raw,sources,{participants}).action_items.length,0);
+ assert.equal(groundedObservation(raw,sources,{completed:true,participants}).action_items.length,1);
+ assert.equal(groundedObservation({...raw,overlaps:[]},sources,{completed:true,participants}).action_items.length,0);
 });

@@ -98,7 +98,7 @@ $('museForm').onsubmit = e => {
     $('museForm').hidden = true; $('museQr').hidden = true; $('museQrActions').hidden = true; $('museIssued').hidden = false;
     $('issuedKey').value = issued.access_token;
     copyKeyToClipboard(issued.access_token, $('issueCopied'));
-    const rows = [['Name', 'Commonroom'], ['Server origin', location.origin], ['Specification', location.origin + '/openapi.json'], ['Authentication', 'HTTP bearer token'], ['MCP (if required)', location.origin + '/mcp']];
+    const rows = [['Name', 'Muser'], ['Server origin', location.origin], ['Specification', location.origin + '/openapi.json'], ['Authentication', 'HTTP bearer token'], ['MCP (if required)', location.origin + '/mcp']];
     $('setupTable').innerHTML = rows.map(([k, v]) => `<tr><th>${k}</th><td><code>${esc(v)}</code></td></tr>`).join('');
     $('setupMessage').value = setupMessageFor(issued, onboarding.authorized);
   });

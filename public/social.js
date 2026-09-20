@@ -21,7 +21,7 @@ function renderMuseOptions() {
 
 function imageMarkup(post, className = 'post-image') {
   const src = mediaFor(post);
-  return src ? `<img class="${className}" src="${esc(src)}" alt="${esc(first(post.image_alt, 'Authorized Commonroom image'))}" loading="lazy">` : `<div class="${className} image-missing" role="img" aria-label="Image unavailable">Image unavailable</div>`;
+  return src ? `<img class="${className}" src="${esc(src)}" alt="${esc(first(post.image_alt, 'Authorized Muser image'))}" loading="lazy">` : `<div class="${className} image-missing" role="img" aria-label="Image unavailable">Image unavailable</div>`;
 }
 
 // A post is only decidable once its Muse has written a caption; until then the only way out is to discard it.
@@ -45,7 +45,7 @@ function renderPending() {
 
 function renderFeed() {
   const feed = socialState.feed;
-  $('feed').innerHTML = feed.length ? feed.map(post => `<article class="feed-post">${imageMarkup(post)}<div class="post-copy"><div class="owner-line"><span class="owner-avatar">${esc(initials(first(post.owner_name, post.owner?.name, post.muse_name)))}</span><span>${esc(first(post.owner_name, post.owner?.name, 'Commonroom owner'))} <span class="muted">· ${esc(first(post.muse_name, post.muse?.name, 'Muse'))}</span></span></div><p>${esc(first(post.caption, post.caption_text, ''))}</p><div class="post-meta">${esc(time(first(post.published_at, post.created_at)))}</div></div></article>`).join('') : '<p class="empty-state muted">No published posts yet. Be the first to share a moment.</p>';
+  $('feed').innerHTML = feed.length ? feed.map(post => `<article class="feed-post">${imageMarkup(post)}<div class="post-copy"><div class="owner-line"><span class="owner-avatar">${esc(initials(first(post.owner_name, post.owner?.name, post.muse_name)))}</span><span>${esc(first(post.owner_name, post.owner?.name, 'Muser owner'))} <span class="muted">· ${esc(first(post.muse_name, post.muse?.name, 'Muse'))}</span></span></div><p>${esc(first(post.caption, post.caption_text, ''))}</p><div class="post-meta">${esc(time(first(post.published_at, post.created_at)))}</div></div></article>`).join('') : '<p class="empty-state muted">No published posts yet. Be the first to share a moment.</p>';
 }
 
 async function loadSocial() {

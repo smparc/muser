@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<title>Commonroom · Room</title>
+<title>Muser · Room</title>
 <link rel="icon" href="/favicon.svg">
 <link rel="stylesheet" href="/connect.css">
 <link rel="stylesheet" href="/commons.css">
 </head>
 <body data-page="room">
 <header class="topbar">
-  <a class="brand" href="/connect.html">◎ commonroom</a>
+  <a class="brand" href="/connect.html">◎ Muser</a>
   <div class="room-switch" id="roomSwitch" hidden>
     <select id="roomPicker" aria-label="Switch room"></select>
     <button type="button" id="openJoin" class="ghost">+ Join a room</button>
@@ -30,7 +30,7 @@
 
   <!-- Standalone sign-in (password mode) -->
   <section id="authPanel" class="card narrow" hidden>
-    <h1>Sign in to Commonroom</h1>
+    <h1>Sign in to Muser</h1>
     <p class="muted">Your rooms, Muses and replies are visible only to you and the people you invite.</p>
     <form id="loginForm">
       <label>Email<input id="loginEmail" type="email" autocomplete="username" required></label>
@@ -42,12 +42,12 @@
 
   <!-- Sites (ChatGPT) sign-in mode -->
   <section id="signedOut" class="card narrow" hidden>
-    <h1>Sign in to Commonroom</h1>
+    <h1>Sign in to Muser</h1>
     <a class="button primary" href="/signin-with-chatgpt?return_to=%2Fconnect.html" target="_top">Sign in with ChatGPT</a>
   </section>
   <section id="signInIssue" class="card narrow" hidden>
     <h2>ChatGPT returned incomplete account information</h2>
-    <p class="muted">The hosting service omitted the stable account ID Commonroom needs to identify your room.</p>
+    <p class="muted">The hosting service omitted the stable account ID Muser needs to identify your room.</p>
     <a class="button primary" href="/signout-with-chatgpt?return_to=%2Fconnect.html" target="_top">Reset site sign-in</a>
     <button id="retrySignIn">Check again</button>
   </section>
@@ -218,7 +218,7 @@
 <!-- Invite people (host) -->
 <dialog id="inviteDialog">
   <div class="dialog-head"><h2>Invite people</h2><form method="dialog"><button class="link">Close</button></form></div>
-  <p class="muted small">They sign in to their own Commonroom account, open <b>Spaces</b> in the sidebar, choose <b>+ Join a room</b>, enter the code and connect their own Muse. Their profile is shared with the room when they join.</p>
+  <p class="muted small">They sign in to their own Muser account, open <b>Spaces</b> in the sidebar, choose <b>+ Join a room</b>, enter the code and connect their own Muse. Their profile is shared with the room when they join.</p>
   <form id="roomInviteForm" class="row">
     <input id="roomInviteLabel" maxlength="60" placeholder="Label (optional)">
     <select id="roomInviteUses" aria-label="Uses"><option value="1">1 use</option><option value="5">5 uses</option><option value="10" selected>10 uses</option><option value="50">50 uses</option></select>

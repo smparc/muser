@@ -180,7 +180,18 @@ function startRoom() {
     renderRoomStatus();
     messages.update(state);
     audio.update(state);
+    requestFinalReview();
+    const recaps=(state.master_observations||[]).filter(o=>o.result.final).length;
+    $('masterButton').textContent=recaps?`Room insights (${recaps})`:'Room insights';
     if(selected)renderPanel();
+  }
+
+  const requestedReviews=new Set();
+  function requestFinalReview(){
+    if(preview||state.room.role!=='host'||!state.master_observer_enabled)return;
+    const c=(state.conversations||[]).find(c=>c.status==='completed'&&c.turn_count>=2&&!requestedReviews.has(c.id)&&!(state.master_observations||[]).some(o=>o.conversation_id===c.id&&o.through_turn===c.turn_count));
+    if(!c)return;requestedReviews.add(c.id);
+    fetch('/api/owner/conversations/'+encodeURIComponent(c.id)+'/observe',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:'{}'}).then(r=>{if(!r.ok)console.warn('Final conversation review unavailable');}).catch(()=>{});
   }
 
   function closePanel() {selected=null;$('panel').hidden=true;for(const a of avatars.values())a.selection.visible=false;}
@@ -190,7 +201,7 @@ function startRoom() {
     let content='';
     if(selected==='master') {
       const observations=(state.master_observations||[]).slice(0,5);
-      content=`<span class="panel-eyebrow">The room observer</span><h2>Noticing the connections.</h2><p>The Muses speak to each other. The observer collects the useful things they discover.</p>${observations.map(o=>`<article class="msg"><b>${esc(o.result.summary)}</b>${(o.result.overlaps||[]).map(x=>`<p>${esc(x.claim)}</p>${(x.evidence||[]).map(e=>`<blockquote>${esc(e.name)}: ${esc(e.text)}</blockquote>`).join('')}`).join('')}${o.result.next_step?`<p>${esc(o.result.next_step)}</p>`:''}</article>`).join('')||`<p class="panel-empty">${preview?'This is a model and animation preview. Live room insights appear here when your Muses share replies.':'No observations yet. Start a Muse conversation to give the room something to discover.'}</p>`}`;
+      content=`<span class="panel-eyebrow">The room observer</span><h2>Noticing the connections.</h2><p>The Muses speak to each other. The observer collects the useful things they discover.</p>${observations.map(o=>`<article class="msg"><small>${o.result.final?'Conversation recap':'In progress'}</small><b>${esc(o.result.summary)}</b>${(o.result.overlaps||[]).map(x=>`<p>${esc(x.claim)}</p>${(x.evidence||[]).map(e=>`<blockquote>${esc(e.name)}: ${esc(e.text)}</blockquote>`).join('')}`).join('')}${(o.result.action_items||[]).length?`<h3>Suggested actions for owners</h3><ol>${o.result.action_items.map(a=>`<li><b>${esc(a.owners.map(p=>p.owner_name).join(' & '))}</b><p>${esc(a.action)}</p><p class="meta">${esc(a.why)}</p></li>`).join('')}</ol><p class="meta">Suggestions only. Nothing has been scheduled or sent.</p>`:o.result.next_step?`<p>${esc(o.result.next_step)}</p>`:''}</article>`).join('')||`<p class="panel-empty">${preview?'This is a model and animation preview. Live room insights appear here when your Muses share replies.':!state.master_observer_enabled?'The moderator needs a model API key configured on the server before it can create conversation recaps.':'No observations yet. Completed Muse conversations will appear here with shared interests and suggested actions.'}</p>`}`;
     } else {
       const actor=interactions.actors.get(selected);if(!actor){closePanel();return;}
       const c=actor.connection,p=state.profiles?.find(p=>p.connection_id===c.id)?.profile||state.members?.find(m=>m.id===c.member_id)?.profile;

@@ -78,7 +78,7 @@ export function createMuse({seed = 1, accessory = 'scarf', detail = 1, identity 
     const foot = new THREE.Group(); foot.position.set(side * .31, .22, .17); rig.add(foot);
     ball(foot, cream, [.28, .23, .38], [0, 0, .04]); feet.push(foot);
   }
-  // The Commonroom mark is real blue piping on the belly.
+  // The Muser mark is real blue piping on the belly.
   curve(rig, [[-.22, 1.07, .49], [-.10, 1.31, .505], [-.10, 1.08, .523], [.08, 1.30, .511], [.06, 1.07, .53], [.23, 1.24, .505]], .034, blue);
   const identityBadge = new THREE.Mesh(new THREE.CircleGeometry(.115, 20), identityMaterial);
   identityBadge.position.set(0, 1.02, .555); rig.add(identityBadge);

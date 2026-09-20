@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Commonroom · Connect your Muse",
+  title: "Muser · Connect your Muse",
   description: "A real onboarding and conversation API for your personal agent.",
   icons: {
     icon: "/favicon.svg",
