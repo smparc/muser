@@ -103,7 +103,7 @@ $('museForm').onsubmit = e => {
     $('setupMessage').value = setupMessageFor(issued, onboarding.authorized);
   });
 };
-$('museLater').onclick = () => { location.href = '/connect.html'; };
+$('museLater').onclick = () => { location.href = '/'; };
 // QR (default): the Muse scans and connects itself. The key flow below stays as a fallback.
 $('museQrButton').onclick = () => {
   if (!$('museName').value.trim()) return showError(new Error('Give your Muse a name first.'));
@@ -133,7 +133,7 @@ $('copySetup').onclick = () => copy($('copySetup'), $('setupMessage').value);
   try {
     await loadOnboarding();
     // Finished people land on the Muse step only if they have none yet; otherwise they belong in their room.
-    if (onboarding.completed) { if (onboarding.muses) location.href = '/connect.html'; else go('muse'); }
+    if (onboarding.completed) { if (onboarding.muses) location.href = '/'; else go('muse'); }
     else go('profile');
   } catch (err) { $('loading').hidden = true; showError(err); }
 })();

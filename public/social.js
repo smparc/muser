@@ -24,10 +24,22 @@ function imageMarkup(post, className = 'post-image') {
   return src ? `<img class="${className}" src="${esc(src)}" alt="${esc(first(post.image_alt, 'Authorized Commonroom image'))}" loading="lazy">` : `<div class="${className} image-missing" role="img" aria-label="Image unavailable">Image unavailable</div>`;
 }
 
+// A post is only decidable once its Muse has written a caption; until then the only way out is to discard it.
+const hasDraft = post => String(first(post.caption_status, '')).toLowerCase() === 'draft' || !!first(post.caption, post.caption_draft, post.draft);
 function renderPending() {
-  const pending = socialState.posts.filter(post => !['published', 'rejected', 'approved'].includes(String(first(post.status, post.state, '')).toLowerCase()));
-  $('pendingCount').textContent = `${pending.length} pending`;
-  $('pendingPosts').innerHTML = pending.length ? pending.map(post => `<article class="pending-card" data-post-id="${esc(post.id)}">${imageMarkup(post)}<div class="post-copy"><h3>${esc(first(post.muse_name, post.muse?.name, post.author_name, 'Muse caption draft'))}</h3><p>${esc(first(post.caption, post.caption_draft, post.draft, 'Your Muse has not added a caption yet.'))}</p><div class="post-meta">Submitted ${esc(ago(first(post.created_at, post.updated_at)))}</div><div class="post-actions"><button class="approve" data-action="approve">Approve & publish</button><button class="reject" data-action="reject">Reject</button></div></div></article>`).join('') : '<p class="empty-state muted">No caption drafts waiting for you.</p>';
+  const pending = socialState.posts.filter(post => !['published', 'rejected', 'approved', 'deleted'].includes(String(first(post.status, post.state, '')).toLowerCase()));
+  const ready = pending.filter(hasDraft).length;
+  $('pendingCount').textContent = ready === pending.length ? `${pending.length} pending` : `${ready} of ${pending.length} ready`;
+  $('pendingPosts').innerHTML = pending.length ? pending.map(post => {
+    const drafted = hasDraft(post);
+    const caption = drafted
+      ? `<p>${esc(first(post.caption, post.caption_draft, post.draft))}</p>`
+      : '<p class="awaiting-caption">Waiting for your Muse to write a caption. It arrives on your Muse’s next check-in.</p>';
+    const actions = drafted
+      ? '<button class="approve" data-action="approve">Approve &amp; publish</button><button class="reject" data-action="reject">Reject</button>'
+      : '<button class="reject" data-action="discard">Discard this image</button>';
+    return `<article class="pending-card${drafted ? '' : ' is-waiting'}" data-post-id="${esc(post.id)}">${imageMarkup(post)}<div class="post-copy"><h3>${esc(first(post.muse_name, post.muse?.name, post.author_name, 'Muse caption draft'))}</h3>${caption}<div class="post-meta">Submitted ${esc(ago(first(post.created_at, post.updated_at)))}</div><div class="post-actions">${actions}</div></div></article>`;
+  }).join('') : '<p class="empty-state muted">No caption drafts waiting for you.</p>';
   document.querySelectorAll('#pendingPosts [data-action]').forEach(button => button.onclick = () => reviewPost(button.closest('[data-post-id]').dataset.postId, button.dataset.action));
 }
 
@@ -46,11 +58,13 @@ async function loadSocial() {
 }
 
 async function reviewPost(id, action) {
+  if (action === 'discard' && !confirm('Discard this image? Your Muse stops working on a caption and nothing is published.')) return;
   const card = document.querySelector(`[data-post-id="${CSS.escape(id)}"]`);
   if (card) card.classList.add('is-busy');
   clearError();
   try {
-    await request(`/api/owner/social/posts/${encodeURIComponent(id)}/${action}`, 'POST', {});
+    if (action === 'discard') await request(`/api/owner/social/posts/${encodeURIComponent(id)}`, 'DELETE');
+    else await request(`/api/owner/social/posts/${encodeURIComponent(id)}/${action}`, 'POST', {});
     await loadSocial();
   } catch (err) { showError(err); if (card) card.classList.remove('is-busy'); }
 }
@@ -84,10 +98,19 @@ $('postForm').onsubmit = async event => {
 };
 $('refreshButton').onclick = async () => { $('refreshButton').disabled = true; try { await loadSocial(); } catch (err) { showError(err); } finally { $('refreshButton').disabled = false; } };
 
+// Password deployments sign in on the room page; Sites deployments go through ChatGPT.
+function signedOut(session) {
+  const chatgpt = session?.mode !== 'password';
+  const link = $('signInLink');
+  link.textContent = chatgpt ? 'Sign in with ChatGPT' : 'Sign in';
+  link.href = chatgpt ? '/signin-with-chatgpt?return_to=%2Fsocial.html' : '/connect.html';
+  if (chatgpt) link.target = '_top'; else link.removeAttribute('target');
+  $('signedOut').hidden = false;
+}
 (async () => {
   const session = await initHeader();
   $('loading').hidden = true;
-  if (!session?.owner) return $('signedOut').hidden = false;
+  if (!session?.owner) return signedOut(session);
   try { await loadSocial(); $('socialWorkspace').hidden = false; }
-  catch (err) { if (err.status === 401 || err.code === 'identity_unavailable') $('signedOut').hidden = false; else showError(err); }
+  catch (err) { if (err.status === 401 || err.code === 'identity_unavailable') signedOut(session); else showError(err); }
 })();

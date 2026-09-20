@@ -29,7 +29,7 @@ export default {
    const owner=path.startsWith('/api/owner')?await ownerFromSession(req,env.DB):null;
    return handle(req,env.DB,owner,runtime,env);
   }
-  if(path.startsWith('/media/social/'))return mediaResponse(req,env.DB,env);
+  if(path.startsWith('/media/social/'))return mediaResponse(req,env.DB,env,await ownerFromSession(req,env.DB));
   if(path==='/')return Response.redirect(new URL('/room3d.html',url),302);
   const res=await env.ASSETS.fetch(req);
   const headers=new Headers(res.headers);headers.set('X-Content-Type-Options','nosniff');headers.set('Referrer-Policy','no-referrer');headers.set('X-Frame-Options','DENY');

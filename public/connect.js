@@ -382,7 +382,7 @@ function renderControls() {
   $('dialogueButton').disabled = everyone.length < 2 || !state.master?.providers?.length;
   $('masterStatus').textContent = state.master_observer_enabled
     ? 'The AI master observes Muse↔Muse conversations and posts grounded findings in the chat.'
-    : 'The AI master observer is offline (no GEMINI_API_KEY on the server). Conversations still work.';
+    : 'The master’s observer is unavailable on this Commonroom, so no readings are posted. Muse ↔ Muse conversations still work.';
 }
 // Both forms leave the prompt out unless the host ticked "Write the question myself", so Gemini writes it.
 function thinking(button, fn) {
@@ -431,7 +431,7 @@ function renderMaster() {
   const models = ms.providers.map(p => `<span class="model">${esc(p.label)} <span class="muted">${esc(p.model)}</span></span>`);
   $('masterModels').innerHTML = models.length === 2 ? models.join('<span class="swap">⇄</span>')
     : models.length === 1 ? models[0] + '<span class="muted small"> · drafts, reviews and judges</span>'
-    : '<span class="warn small">No AI key on the server. Add GEMINI_API_KEY to worker/.dev.vars to enable the master.</span>';
+    : '<span class="warn small">The master is unavailable on this Commonroom: no AI model is configured. You can still write questions yourself.</span>';
   const waiting = /^Waiting/.test(ms.status ?? ''), thinking = masterBusy || ms.busy || /Writing|Deciding|Starting/.test(ms.status ?? '');
   $('masterDot').className = 'dot ' + (ms.error ? 'off' : thinking ? 'wait' : running ? 'on' : 'idle');
   const now = masterBusy ? (ms.status && /Waiting|ready/.test(ms.status) ? 'Thinking…' : (ms.status || 'Thinking…')) + ' (model calls take a few seconds)' : (ms.status ?? 'Running');
@@ -557,7 +557,7 @@ $('roomInviteForm').onsubmit = e => {
   action($('roomInviteButton'), async () => {
     const r = await api('/rooms/' + state.room.id + '/invites', 'POST', body);
     $('newInviteCode').textContent = r.code;
-    $('newInviteMeta').textContent = `Up to ${r.max_uses} people · expires ${time(r.expires_at)}. Shown once. They sign in at ${location.origin}/connect.html and choose + Join a room.`;
+    $('newInviteMeta').textContent = `Up to ${r.max_uses} people · expires ${time(r.expires_at)}. Shown once. They sign in at ${location.origin}, open Spaces in the sidebar and choose + Join a room.`;
     $('newInvite').hidden = false; $('roomInviteLabel').value = '';
   });
 };

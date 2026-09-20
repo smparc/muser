@@ -16,17 +16,19 @@
     {
       "binding": "DB",
       "database_name": "commonroom",
-      // Replace with the ID printed by: wrangler d1 create commonroom
-      "database_id": "00000000-0000-4000-8000-000000000000",
+      // Created with: wrangler d1 create commonroom
+      "database_id": "dfe31840-9fc5-486f-9180-fedc8c654ae2",
       "migrations_dir": "../drizzle"
     }
   ],
-  "r2_buckets": [
-    {
-      "binding": "MEDIA",
-      "bucket_name": "commonroom-media"
-    }
-  ],
+  // R2 is not enabled on this account. Image posts return 503 media_unavailable until it is.
+  // Enable R2 in the dashboard, run: wrangler r2 bucket create commonroom-media, then uncomment.
+  // "r2_buckets": [
+  //   {
+  //     "binding": "MEDIA",
+  //     "bucket_name": "commonroom-media"
+  //   }
+  // ],
   "observability": { "enabled": true }
   // Optional secret gating owner sign-up: wrangler secret put OWNER_SIGNUP_CODE --config worker/wrangler.jsonc
 }

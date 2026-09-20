@@ -4,6 +4,7 @@ import {createMuse, seedFor} from './muse-model.js';
 import {createRoom, CONVERSATION_SPOTS, OBSERVER_POSITION} from './room-environment.js';
 import {deriveInteractions, describeRoom} from './room-interactions.mjs';
 import {createRoomMessages} from './room-messages.js';
+import {audio,audioSpeaker} from './room-audio-controller.js';
 
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -103,14 +104,14 @@ function startRoom() {
     if(following===id)resetCamera();if(selected===id)closePanel();
   }
   function dropPair(id) {const v=pairVisuals.get(id);if(!v)return;v.line.geometry.dispose();v.line.material.dispose();scene.remove(v.line);pairVisuals.delete(id);}
-  function clearRoom() {for(const id of [...avatars.keys()])dropActor(id);for(const id of [...pairVisuals.keys()])dropPair(id);closePanel();messages.clear();}
+  function clearRoom() {audio.clear();for(const id of [...avatars.keys()])dropActor(id);for(const id of [...pairVisuals.keys()])dropPair(id);closePanel();messages.clear();}
 
   function renderRoomStatus() {
     const status=preview?{label:'Animation preview',tone:'waiting',detail:`${interactions.actors.size} sample people · ${interactions.actors.size} Muses · no tokens used`}:describeRoom(state,interactions,{stale,signedOut});
     if($('sceneConnection').textContent!==status.label)$('sceneConnection').textContent=status.label;
     $('sceneConnection').dataset.status=status.tone;
     if($('roomPopulation').textContent!==status.detail)$('roomPopulation').textContent=status.detail;
-    if(!state){$('summary').textContent=status.detail;$('conversationCount').textContent=signedOut?'Your room is a sign-in away.':'Waiting for the room';$('followMuse').disabled=true;}
+    if(!state){$('summary').textContent=status.detail;$('conversationCount').textContent=signedOut?'Your room is a sign-in away.':'Waiting for the room';$('followMuse').disabled=true;$('connectMuse').hidden=true;}
   }
 
   function sync(now) {
@@ -167,12 +168,18 @@ function startRoom() {
       const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]),new THREE.LineDashedMaterial({color:0x829ee0,dashSize:.13,gapSize:.12,transparent:true,opacity:.36}));
       line.frustumCulled=false;scene.add(line);pairVisuals.set(p.conversation.id,{line});
     }
-    $('summary').textContent=preview?'Sample Muses · no agents or tokens used':`${state.room.name} · ${interactions.actors.size} ${interactions.actors.size===1?'Muse':'Muses'}`;
-    $('followMuse').disabled=![...interactions.actors.values()].some(a=>a.connection.mine);$('emptyRoom').hidden=interactions.actors.size>0;
+    // Every member stands in the room even before connecting a Muse, so count and prompt on real connections only.
+    const actors=[...interactions.actors.values()],connected=actors.filter(a=>!a.connection.placeholder);
+    const mineConnected=connected.some(a=>a.connection.mine);
+    $('summary').textContent=preview?'Sample Muses · no agents or tokens used':`${state.room.name} · ${connected.length} ${connected.length===1?'Muse':'Muses'}`;
+    $('followMuse').disabled=!actors.some(a=>a.connection.mine);
+    $('emptyRoom').hidden=connected.length>0;
+    $('connectMuse').hidden=preview||mineConnected;$('followMuse').hidden=!$('connectMuse').hidden;
     const count=interactions.pairs.filter(p=>p.conversation.status==='active').length;
     $('conversationCount').textContent=count?`${count} conversation${count===1?'':'s'} in the room`:'A little space to connect';
     renderRoomStatus();
     messages.update(state);
+    audio.update(state);
     if(selected)renderPanel();
   }
 
@@ -245,7 +252,10 @@ function startRoom() {
       const delta=Math.atan2(Math.sin(yaw-a.model.root.rotation.y),Math.cos(yaw-a.model.root.rotation.y));
       a.model.root.rotation.y+=delta*(calm?1:1-Math.exp(-dt*(gap>.25?6:2.4)));
       a.walk+=((gap>.12?1:0)-a.walk)*Math.min(1,dt*7);
-      a.model.animate(t/1000,{motion:a.actor.mode,walking:calm?0:a.walk,energy:a.actor.active?1:.2,reducedMotion:calm});
+      const speaking=!!audioSpeaker&&(a.actor.connection.id===audioSpeaker.connectionId||a.actor.connection.member_id===audioSpeaker.memberId&&!!audioSpeaker.memberId);
+      const audioEnabled=$('roomAudioToggle').getAttribute('aria-pressed')==='true';
+      a.label.classList.toggle('audio-speaking',speaking);
+      a.model.animate(t/1000,{motion:speaking?'speaking':audioEnabled&&a.actor.mode==='speaking'?'listening':a.actor.mode,walking:calm?0:a.walk,energy:speaking?1:a.actor.active?1:.2,reducedMotion:calm});
       a.selection.position.copy(a.model.root.position);a.selection.position.y=.16;
     }
     observer.animate(t/1000,{motion:'idle',energy:.5,reducedMotion:calm});
@@ -263,14 +273,14 @@ function startRoom() {
       let room=new URLSearchParams(location.search).get('room');try{room ||= localStorage.getItem('commonroom.room');}catch{}
       let response=await fetch('/api/owner/state'+(room?'?room='+encodeURIComponent(room):''),{credentials:'same-origin',signal:AbortSignal.timeout(10000)});
       if(response.status===404&&room)response=await fetch('/api/owner/state',{credentials:'same-origin',signal:AbortSignal.timeout(10000)});
-      if(response.status===401){clearRoom();state=null;interactions={actors:new Map(),pairs:[]};signedOut=true;stale=false;renderRoomStatus();$('signin').hidden=false;$('emptyRoom').hidden=true;return;}
+      if(response.status===401){clearRoom();audio.clear("Sign in to your room to enable Muse voices.");state=null;interactions={actors:new Map(),pairs:[]};signedOut=true;stale=false;renderRoomStatus();$('signin').hidden=false;$('emptyRoom').hidden=true;return;}
       if(response.status===403&&(await response.clone().json().catch(()=>({}))).error==='onboarding_required'){location.href='/welcome.html';return;}
       if(!response.ok)throw Error('Room unavailable');
       const next=await response.json();if(next.room.id!==lastRoom){const showMessages=$('roomMessages').open;clearRoom();lastRoom=next.room.id;resetCamera();if(showMessages)messages.open();}
       try{localStorage.setItem('commonroom.room',next.room.id);}catch{}
       const url=new URL(location.href);if(url.searchParams.has('room')){url.searchParams.set('room',next.room.id);history.replaceState(null,'',url);}
       state=next;stale=false;signedOut=false;clockOffset=Number.isFinite(next.server_time)?next.server_time-Date.now():0;$('signin').hidden=true;sync(Date.now()+clockOffset);
-    } catch {stale=true;renderRoomStatus();}
+    } catch {stale=true;audio.pause();renderRoomStatus();}
     finally{busy=false;}
   }
   if(preview){$('previewBanner').hidden=false;state=previewState(Date.now(),previewStart);sync(Date.now());}else load();
