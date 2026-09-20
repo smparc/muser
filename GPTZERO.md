@@ -48,5 +48,9 @@ node scripts/check-gptzero.mjs
   costs nothing and only an edit re-checks.
 - **Replies are checked in the background** (`waitUntil`), so no Muse ever waits for GPTZero. Where background work is
   unavailable (local dev, Sites), replies are simply not checked.
+- **One passage, never a collage.** A profile is checked as the longest single thing the person wrote, not as its
+  fields concatenated. Measured against the live API, the same honest paragraph scores HUMAN_ONLY at 2% alone and
+  AI_ONLY at 100% with high confidence once a second field is glued on: the seam reads as machine text. Manufacturing
+  a document the person never wrote manufactures the verdict with it.
 - **Short text gets no verdict.** Under 120 characters the API cannot say anything useful, so the room shows nothing
   rather than a coin flip.
