@@ -109,3 +109,16 @@ test('checkReply on a missing response is a no-op', async () => {
   await checkReply(h.db, client, 'reply_nope');
   assert.equal(h.sql.prepare("SELECT count(*) AS n FROM text_checks WHERE ref_id='reply_nope'").get().n, 0);
 });
+
+test('a profile is checked as one real passage, never as glued-together fields', () => {
+  // Measured against the live API: the same honest paragraph scores HUMAN_ONLY (2% AI) on its own and AI_ONLY
+  // (100% AI, high confidence) once a second field is appended. The seam between two fragments reads as machine text,
+  // so only the longest thing the person actually wrote is ever sent.
+  const p = {working_on: 'building a little route finding app, half finished, ugly ui but it works on my phone', seeking: 'someone who has shipped', interests: ['bouldering']};
+  assert.equal(profileText(p), p.working_on);
+  assert.ok(!profileText(p).includes(p.seeking));
+  assert.ok(!profileText(p).includes('bouldering'));
+  // Whichever field is longer is the one checked.
+  assert.equal(profileText({working_on: 'short', seeking: 'a much longer passage about what I am looking for'}), 'a much longer passage about what I am looking for');
+  assert.equal(profileText({}), '');
+});
