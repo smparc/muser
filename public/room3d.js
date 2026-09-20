@@ -4,6 +4,7 @@ import {createMuse, seedFor} from './muse-model.js';
 import {createRoom, CONVERSATION_SPOTS, OBSERVER_POSITION} from './room-environment.js';
 import {deriveInteractions, describeRoom} from './room-interactions.mjs';
 import {createRoomMessages} from './room-messages.js';
+import {audio,audioSpeaker} from './room-audio-controller.js';
 
 const $ = id => document.getElementById(id);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -42,6 +43,44 @@ function startRoom() {
   let lastInteraction=0, previousFrame=0, animationFrame=0, lastRoom=null, busy=false, destroyed=false, stale=false;
   let signedOut=false,clockOffset=0;
   const previewStart=Date.now(), project = new THREE.Vector3(), ray = new THREE.Raycaster(), pointer = new THREE.Vector2();
+  // Muses outside a conversation stroll the commons and pause to look around instead of standing on a grid.
+  const wanderState = new Map();
+  const WANDER_BOUNDS = {minX:-9, maxX:9, minZ:-2, maxZ:8};
+  // Furniture the strollers walk around: the low table, the two side seats and the planters.
+  const WANDER_OBSTACLES = [{x:.5,z:-.83,r:2.3},{x:-7,z:3.7,r:2.1},{x:7,z:3.7,r:2.1},{x:-9,z:2.8,r:1.4},{x:9.3,z:2.5,r:1.5},{x:-7,z:7.5,r:1.2},{x:7,z:7.7,r:1.2}];
+  let pairAnchors = [];
+  function pickWanderTarget(from, occupied) {
+    for(let i=0;i<30;i++){
+      const x=WANDER_BOUNDS.minX+Math.random()*(WANDER_BOUNDS.maxX-WANDER_BOUNDS.minX);
+      const z=WANDER_BOUNDS.minZ+Math.random()*(WANDER_BOUNDS.maxZ-WANDER_BOUNDS.minZ);
+      if(WANDER_OBSTACLES.some(o=>Math.hypot(o.x-x,o.z-z)<o.r))continue;
+      if(occupied.some(p=>Math.hypot(p.x-x,p.z-z)<2.2))continue;
+      if(Math.hypot(from.x-x,from.z-z)<2.6)continue; // Worth walking to, not a shuffle in place.
+      return {x,z};
+    }
+    return null;
+  }
+  function strollOccupied(exceptId) {
+    const points=pairAnchors.slice();
+    for(const [id,a] of avatars)if(id!==exceptId)points.push({x:a.target.x,z:a.target.z});
+    return points;
+  }
+  // Pauses face roughly back toward the middle of the room, so nobody stands staring at a wall.
+  const glanceYaw = (x,z) => Math.atan2(-x,1.1-z)+(Math.random()-.5)*1.4;
+  function stroll(id, a, now) {
+    const here=a.model.root.position;
+    let w=wanderState.get(id);
+    if(!w){w={phase:'pause',until:now+400+Math.random()*3600,glanceAt:now+2000+Math.random()*3000,x:here.x,z:here.z,yaw:a.yaw};wanderState.set(id,w);}
+    if(w.phase==='walk'&&Math.hypot(w.x-here.x,w.z-here.z)<.1) {
+      w.phase='pause';w.yaw=glanceYaw(w.x,w.z);
+      w.until=now+(a.actor.active?2600:5200)+Math.random()*7000;w.glanceAt=now+2400+Math.random()*3200;
+    }
+    if(w.phase==='pause') {
+      if(now>=w.glanceAt){w.yaw=glanceYaw(w.x,w.z);w.glanceAt=now+2400+Math.random()*3200;}
+      if(now>=w.until){const next=pickWanderTarget(here,strollOccupied(id));if(next){w.phase='walk';w.x=next.x;w.z=next.z;}else w.until=now+1400;}
+    }
+    a.target.set(w.x,.11,w.z);a.yaw=w.yaw;
+  }
 
   function resetCamera() {
     following=null;
@@ -61,18 +100,18 @@ function startRoom() {
 
   function dropActor(id) {
     const a=avatars.get(id);if(!a)return;
-    a.model.dispose();a.label.remove();a.speech.remove();a.selection.geometry.dispose();a.selection.material.dispose();scene.remove(a.selection);avatars.delete(id);
+    a.model.dispose();a.label.remove();a.speech.remove();a.selection.geometry.dispose();a.selection.material.dispose();scene.remove(a.selection);avatars.delete(id);wanderState.delete(id);
     if(following===id)resetCamera();if(selected===id)closePanel();
   }
   function dropPair(id) {const v=pairVisuals.get(id);if(!v)return;v.line.geometry.dispose();v.line.material.dispose();scene.remove(v.line);pairVisuals.delete(id);}
-  function clearRoom() {for(const id of [...avatars.keys()])dropActor(id);for(const id of [...pairVisuals.keys()])dropPair(id);closePanel();messages.clear();}
+  function clearRoom() {audio.clear();for(const id of [...avatars.keys()])dropActor(id);for(const id of [...pairVisuals.keys()])dropPair(id);closePanel();messages.clear();}
 
   function renderRoomStatus() {
-    const status=preview?{label:'Animation preview',tone:'waiting',detail:'2 sample people · 2 Muses · no tokens used'}:describeRoom(state,interactions,{stale,signedOut});
+    const status=preview?{label:'Animation preview',tone:'waiting',detail:`${interactions.actors.size} sample people · ${interactions.actors.size} Muses · no tokens used`}:describeRoom(state,interactions,{stale,signedOut});
     if($('sceneConnection').textContent!==status.label)$('sceneConnection').textContent=status.label;
     $('sceneConnection').dataset.status=status.tone;
     if($('roomPopulation').textContent!==status.detail)$('roomPopulation').textContent=status.detail;
-    if(!state){$('summary').textContent=status.detail;$('conversationCount').textContent=signedOut?'Your room is a sign-in away.':'Waiting for the room';$('followMuse').disabled=true;}
+    if(!state){$('summary').textContent=status.detail;$('conversationCount').textContent=signedOut?'Your room is a sign-in away.':'Waiting for the room';$('followMuse').disabled=true;$('connectMuse').hidden=true;}
   }
 
   function sync(now) {
@@ -85,6 +124,7 @@ function startRoom() {
       assignments.set(p.first,{x:base.x-1.55,z:base.z+depth,faceX:base.x+1.55,faceZ:base.z+1.9+depth});
       assignments.set(p.second,{x:base.x+1.55,z:base.z+depth,faceX:base.x-1.55,faceZ:base.z+1.9+depth});
     });
+    const pairedIds=new Set(assignments.keys());pairAnchors=[...assignments.values()].map(p=>({x:p.x,z:p.z}));
     const idleActors=[...interactions.actors.keys()].filter(id=>!assignments.has(id));
     const columns=Math.min(3,idleActors.length),occupied=[...assignments.values()];
     let slot=0;
@@ -107,13 +147,14 @@ function startRoom() {
         const speech=document.createElement('div');speech.className='label speech-label';$('labels').append(speech);
         const selection=new THREE.Mesh(new THREE.RingGeometry(.8,.87,48),new THREE.MeshBasicMaterial({color:0x5383ef,transparent:true,opacity:.65,side:THREE.DoubleSide}));
         selection.rotation.x=-Math.PI/2;selection.visible=false;scene.add(selection);
-        a={model,label,speech,selection,target:new THREE.Vector3(),yaw:0,actor,speechId:null};avatars.set(id,a);
+        a={model,label,speech,selection,target:new THREE.Vector3(),yaw:0,actor,speechId:null,paired:false,walk:0};avatars.set(id,a);
       }
       a.actor=actor;
       a.model.setConnectionState({owner:actor.connection.member_id||actor.connection.owner_id||actor.connection.owner_name||id,status:actor.connection.status});
-      const seat=assignments.get(id);
+      const seat=assignments.get(id);a.paired=pairedIds.has(id);
       a.target.set(seat.x,.11,seat.z);a.yaw=Math.atan2(seat.faceX-seat.x,seat.faceZ-seat.z);a.model.root.scale.setScalar(actor.active?1:.9);
       if(isNew){a.model.root.position.copy(a.target);a.model.root.rotation.y=a.yaw;}
+      if(a.paired)wanderState.delete(id); // The next stroll starts from wherever the conversation leaves them.
       a.label.querySelector('.name').textContent=actor.connection.name;a.label.querySelector('.actor-status').textContent=actor.status;a.label.dataset.mode=actor.mode;
       const speechId=actor.reply?.id||null;
       if(a.speechId!==speechId) {
@@ -127,12 +168,18 @@ function startRoom() {
       const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]),new THREE.LineDashedMaterial({color:0x829ee0,dashSize:.13,gapSize:.12,transparent:true,opacity:.36}));
       line.frustumCulled=false;scene.add(line);pairVisuals.set(p.conversation.id,{line});
     }
-    $('summary').textContent=preview?'Sample Muses · no agents or tokens used':`${state.room.name} · ${interactions.actors.size} ${interactions.actors.size===1?'Muse':'Muses'}`;
-    $('followMuse').disabled=![...interactions.actors.values()].some(a=>a.connection.mine);$('emptyRoom').hidden=interactions.actors.size>0;
+    // Every member stands in the room even before connecting a Muse, so count and prompt on real connections only.
+    const actors=[...interactions.actors.values()],connected=actors.filter(a=>!a.connection.placeholder);
+    const mineConnected=connected.some(a=>a.connection.mine);
+    $('summary').textContent=preview?'Sample Muses · no agents or tokens used':`${state.room.name} · ${connected.length} ${connected.length===1?'Muse':'Muses'}`;
+    $('followMuse').disabled=!actors.some(a=>a.connection.mine);
+    $('emptyRoom').hidden=connected.length>0;
+    $('connectMuse').hidden=preview||mineConnected;$('followMuse').hidden=!$('connectMuse').hidden;
     const count=interactions.pairs.filter(p=>p.conversation.status==='active').length;
     $('conversationCount').textContent=count?`${count} conversation${count===1?'':'s'} in the room`:'A little space to connect';
     renderRoomStatus();
     messages.update(state);
+    audio.update(state);
     if(selected)renderPanel();
   }
 
@@ -185,11 +232,30 @@ function startRoom() {
     const now=Date.now()+clockOffset, paused=$('motionToggle').getAttribute('aria-pressed')==='true', calm=reducedMotion.matches||paused;
     if(now-lastInteraction>1000){lastInteraction=now;if(preview)state=previewState(now,previewStart);sync(now);}
     const blend=calm?1:1-Math.exp(-dt*3);
-    for(const a of avatars.values()) {
-      const moving=a.model.root.position.distanceTo(a.target);a.model.root.position.lerp(a.target,blend*.6);if(calm)a.model.root.position.copy(a.target);
-      const yaw=moving>.15?Math.atan2(a.target.x-a.model.root.position.x,a.target.z-a.model.root.position.z):a.yaw;
-      const delta=Math.atan2(Math.sin(yaw-a.model.root.rotation.y),Math.cos(yaw-a.model.root.rotation.y));a.model.root.rotation.y+=delta*blend;
-      a.model.animate(t/1000,{motion:a.actor.mode,walking:Math.min(1,moving*2),energy:a.actor.active?1:.2,reducedMotion:calm});
+    // Crossing paths nudge apart rather than clipping through each other.
+    if(!calm){
+      const walkers=[...avatars.values()].filter(a=>!a.paired);
+      for(let i=0;i<walkers.length;i++)for(let j=i+1;j<walkers.length;j++){
+        const first=walkers[i].model.root.position,second=walkers[j].model.root.position;
+        const dx=second.x-first.x,dz=second.z-first.z,distance=Math.hypot(dx,dz);
+        if(distance>1.25||distance<1e-4)continue;
+        const push=(1.25-distance)/(2*distance);
+        first.x-=dx*push;first.z-=dz*push;second.x+=dx*push;second.z+=dz*push;
+      }
+    }
+    for(const [id,a] of avatars) {
+      if(!a.paired){if(calm)a.target.copy(a.model.root.position);else stroll(id,a,now);} // Pausing motion leaves strollers where they stand.
+      const position=a.model.root.position, gap=Math.hypot(a.target.x-position.x,a.target.z-position.z);
+      if(calm||gap<=.02)position.copy(a.target);
+      else {const advance=Math.min(gap,(a.paired?2.4:.95)*dt);position.x+=(a.target.x-position.x)/gap*advance;position.z+=(a.target.z-position.z)/gap*advance;position.y=a.target.y;}
+      const yaw=gap>.25?Math.atan2(a.target.x-position.x,a.target.z-position.z):a.yaw;
+      const delta=Math.atan2(Math.sin(yaw-a.model.root.rotation.y),Math.cos(yaw-a.model.root.rotation.y));
+      a.model.root.rotation.y+=delta*(calm?1:1-Math.exp(-dt*(gap>.25?6:2.4)));
+      a.walk+=((gap>.12?1:0)-a.walk)*Math.min(1,dt*7);
+      const speaking=!!audioSpeaker&&(a.actor.connection.id===audioSpeaker.connectionId||a.actor.connection.member_id===audioSpeaker.memberId&&!!audioSpeaker.memberId);
+      const audioEnabled=$('roomAudioToggle').getAttribute('aria-pressed')==='true';
+      a.label.classList.toggle('audio-speaking',speaking);
+      a.model.animate(t/1000,{motion:speaking?'speaking':audioEnabled&&a.actor.mode==='speaking'?'listening':a.actor.mode,walking:calm?0:a.walk,energy:speaking?1:a.actor.active?1:.2,reducedMotion:calm});
       a.selection.position.copy(a.model.root.position);a.selection.position.y=.16;
     }
     observer.animate(t/1000,{motion:'idle',energy:.5,reducedMotion:calm});
@@ -207,14 +273,14 @@ function startRoom() {
       let room=new URLSearchParams(location.search).get('room');try{room ||= localStorage.getItem('commonroom.room');}catch{}
       let response=await fetch('/api/owner/state'+(room?'?room='+encodeURIComponent(room):''),{credentials:'same-origin',signal:AbortSignal.timeout(10000)});
       if(response.status===404&&room)response=await fetch('/api/owner/state',{credentials:'same-origin',signal:AbortSignal.timeout(10000)});
-      if(response.status===401){clearRoom();state=null;interactions={actors:new Map(),pairs:[]};signedOut=true;stale=false;renderRoomStatus();$('signin').hidden=false;$('emptyRoom').hidden=true;return;}
+      if(response.status===401){clearRoom();audio.clear("Sign in to your room to enable Muse voices.");state=null;interactions={actors:new Map(),pairs:[]};signedOut=true;stale=false;renderRoomStatus();$('signin').hidden=false;$('emptyRoom').hidden=true;return;}
       if(response.status===403&&(await response.clone().json().catch(()=>({}))).error==='onboarding_required'){location.href='/welcome.html';return;}
       if(!response.ok)throw Error('Room unavailable');
       const next=await response.json();if(next.room.id!==lastRoom){const showMessages=$('roomMessages').open;clearRoom();lastRoom=next.room.id;resetCamera();if(showMessages)messages.open();}
       try{localStorage.setItem('commonroom.room',next.room.id);}catch{}
       const url=new URL(location.href);if(url.searchParams.has('room')){url.searchParams.set('room',next.room.id);history.replaceState(null,'',url);}
       state=next;stale=false;signedOut=false;clockOffset=Number.isFinite(next.server_time)?next.server_time-Date.now():0;$('signin').hidden=true;sync(Date.now()+clockOffset);
-    } catch {stale=true;renderRoomStatus();}
+    } catch {stale=true;audio.pause();renderRoomStatus();}
     finally{busy=false;}
   }
   if(preview){$('previewBanner').hidden=false;state=previewState(Date.now(),previewStart);sync(Date.now());}else load();
@@ -229,7 +295,7 @@ function startRoom() {
 // This local-only loop never sends messages or calls the room API.
 function previewState(now,start) {
   const cycle=Math.floor((now-start)/28000),offset=(now-start)%28000,base=start+cycle*28000,second=offset>=14000,speaker=second?'preview-satchel':'preview-scarf';
-  const connections=[{id:'preview-scarf',name:'Scarf Muse',status:'connected',mine:true},{id:'preview-satchel',name:'Satchel Muse',status:'connected'}],last=base+(second?14000:0);
+  const connections=[{id:'preview-scarf',name:'Scarf Muse',status:'connected',mine:true},{id:'preview-satchel',name:'Satchel Muse',status:'connected'},{id:'preview-wanderer',name:'Wandering Muse',status:'connected'}],last=base+(second?14000:0);
   return {room:{id:'preview',name:'Animation preview'},connections:connections.map(c=>({...c,member_id:c.id})),members:connections.map(c=>({id:c.id,name:c.name,you:!!c.mine})),profiles:[],master_observations:[],responses:[{id:`preview-${cycle}-${second?2:1}`,task_id:'preview-answer',connection_id:speaker,text:second?'I’m exploring that too. We could compare ideas and build something small together.':'What is your person curious about? Maybe we can find something to work on together.',created_at:last}],conversations:[{id:'preview-conversation',first_id:'preview-scarf',second_id:'preview-satchel',status:'active',topic:'Finding something in common',turn_count:second?2:1,max_turns:4}],tasks:[{id:'preview-answer',round_id:'preview-conversation',kind:'conversation',state:'answered',connection_id:speaker,created_at:last},{id:'preview-next',round_id:'preview-conversation',kind:'conversation',state:'fetched',fetched_at:last,connection_id:second?'preview-scarf':'preview-satchel',created_at:last}]};
 }
 try{startRoom();}catch(error){console.error('Room renderer failed:',error);$('sceneError').hidden=false;}

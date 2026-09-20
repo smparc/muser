@@ -45,6 +45,7 @@
 
   function openView(view) {
     if (view === 'home' || view === 'messages') { location.href = view === 'home' ? '/' : '/room3d.html#messages'; return; }
+    if (view === 'chat') { tools.close(); return; } // The room page itself, with no panel over it.
     if (!lastState || workspace.hidden) { $('authPanel').querySelector('input')?.focus(); return; }
     if (titles[view]) {
       tools.dataset.view = view;

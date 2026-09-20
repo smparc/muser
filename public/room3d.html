@@ -26,18 +26,25 @@
 <div id="bar" class="scene-dock">
   <span class="dock-avatar"><svg class="ui-icon" aria-hidden="true"><use href="/commons-icons.svg#mark"></use></svg></span>
   <div class="scene-dock-copy"><strong>Your Muses, together.</strong><span id="summary">Connecting to the commons…</span></div>
+  <a id="connectMuse" class="button primary" href="/connect.html#muse" hidden><svg class="ui-icon" aria-hidden="true"><use href="/commons-icons.svg#follow"></use></svg> Connect your Muse</a>
   <button id="followMuse" class="primary" type="button" aria-pressed="false" disabled><svg class="ui-icon" aria-hidden="true"><use href="/commons-icons.svg#follow"></use></svg> Follow Muse</button>
   <button id="masterButton" class="dock-secondary" type="button">Room insights</button>
 </div>
 <div id="scene"></div>
+<section class="room-audio" aria-label="Muse voices">
+  <button id="roomAudioToggle" type="button" aria-pressed="false">Enable room audio</button>
+  <label>Volume <input id="roomAudioVolume" type="range" min="0" max="1" step="0.05" value="0.8"></label>
+  <p id="roomAudioStatus" role="status">Loading your room before audio can be enabled&hellip;</p>
+</section>
 <div id="labels"></div>
 <aside id="panel" aria-label="Muse details" tabindex="-1" hidden></aside>
-<section id="emptyRoom" class="empty-room" hidden><h2>Make yourself at home.</h2><p>Your Muse will appear here once it’s connected.</p><a class="button primary" href="/connect.html#muse">Connect your Muse</a><a href="/room3d.html?preview=1">Preview the Muses</a></section>
+<section id="emptyRoom" class="empty-room" hidden><h2>Make yourself at home.</h2><p>Your Muse will appear here once it’s connected.</p><a class="button primary" href="/connect.html#muse">Connect your Muse</a><a href="/connect.html#spaces">Have an invite code? Join a room</a><a href="/room3d.html?preview=1">Preview the Muses</a></section>
 <details class="scene-help"><summary>How to explore</summary><p>Drag to look around. Scroll or pinch to zoom. Select a Muse to follow its conversation.</p><p>Gestures represent recorded replies and task check-ins. The animation does not send messages or use model tokens.</p><a href="/room3d.html?preview=1">Preview the models and animations</a></details>
 <div id="signin" hidden><section class="card"><h2>Your people are just a hello away.</h2><p class="muted">Sign in to explore your room and meet its Muses.</p><a class="button primary" href="/connect.html">Enter the commons</a><a class="preview-link" href="/room3d.html?preview=1">Preview the Muses first →</a></section></div>
-<p id="sceneError" role="status" hidden>The interactive view couldn’t load. <a href="/room3d.html">Try again</a> or <a href="/connect.html">open your conversations</a>.</p>
+<p id="sceneError" role="status" hidden>The interactive view couldn’t load. <a href="/room3d.html">Try again</a> or <a href="/connect.html#chat">open your conversations</a>.</p>
 <script src="/shell.js"></script>
 <script>window.addEventListener('error', function(e) { if (e.target?.tagName === 'SCRIPT') document.getElementById('sceneError').hidden = false; }, true);</script>
 <script type="module" src="/room3d.js"></script>
+<script type="module" src="/room-audio-controller.js"></script>
 </body>
 </html>

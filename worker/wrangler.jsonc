@@ -25,6 +25,7 @@
       "binding": "DB",
       "database_name": "commonroom",
       // Created with: wrangler d1 create commonroom
+      // The database behind muser.work. A deploy from another Cloudflare account needs that account's own ID here.
       "database_id": "1924d15f-d9db-4468-8eee-019952e3f0bd",
       "migrations_dir": "../drizzle"
     }

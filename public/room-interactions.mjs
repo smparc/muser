@@ -42,7 +42,9 @@ function representMembers(state, actors, pairs, now) {
 export function describeRoom(state, interactions, {stale=false,signedOut=false}={}) {
   if(signedOut)return {label:'Sign in to enter',tone:'offline',detail:'Sign in to see your room.'};
   if(!state)return {label:stale?'Room unavailable':'Connecting…',tone:stale?'offline':'waiting',detail:stale?'Retrying the room connection.':'Loading your room.'};
-  const people=state.members?.length??interactions.actors.size,muses=interactions.actors.size;
+  const people=state.members?.length??interactions.actors.size;
+  // Members without a Muse stand in the room as placeholders; they are people, not Muses.
+  const muses=[...interactions.actors.values()].filter(a=>!a.connection.placeholder).length;
   const connected=[...interactions.actors.values()].filter(a=>a.active).length;
   const counts=`${people} ${people===1?'person':'people'} · ${muses} ${muses===1?'Muse':'Muses'}`;
   if(stale)return {label:'Reconnecting…',tone:'offline',detail:`${counts} · last known state`};

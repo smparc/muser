@@ -1,4 +1,4 @@
-import {sqliteTable,text,integer,index,uniqueIndex} from 'drizzle-orm/sqlite-core';
+import {sqliteTable,text,integer,index,uniqueIndex,blob,primaryKey} from 'drizzle-orm/sqlite-core';
 // archived_at: read-only room (Muses refused, nothing new can be queued). owner_id is the host. An owner's first room is their home room; they can create more. Others join through room_invites.
 export const rooms=sqliteTable('rooms',{id:text('id').primaryKey(),ownerId:text('owner_id').notNull(),createdAt:integer('created_at').notNull(),name:text('name'),archivedAt:integer('archived_at'),masterMode:text('master_mode').notNull().default('off'),masterRoundsLeft:integer('master_rounds_left').notNull().default(0),masterStatus:text('master_status'),masterError:text('master_error'),masterLockUntil:integer('master_lock_until'),masterUpdatedAt:integer('master_updated_at')},t=>[index('rooms_owner').on(t.ownerId,t.createdAt)]);
 // profile_shared: the member's owner profile is visible in this room (on by default when joining; per-room opt-out).
@@ -39,3 +39,8 @@ export const ownerConsents=sqliteTable('owner_consents',{ownerId:text('owner_id'
 // One-time setup links shown as a QR code: a Muse claims the link once (within 15 minutes) and receives its key directly.
 // Only the code's SHA-256 is stored; the connection (and key) is created at claim time.
 export const setupLinks=sqliteTable('setup_links',{id:text('id').primaryKey(),codeHash:text('code_hash').notNull().unique(),ownerId:text('owner_id').notNull(),ownerName:text('owner_name').notNull(),roomId:text('room_id').notNull().references(()=>rooms.id),agentName:text('agent_name').notNull(),createdAt:integer('created_at').notNull(),expiresAt:integer('expires_at').notNull(),claimedAt:integer('claimed_at'),connectionId:text('connection_id')},t=>[index('setup_links_owner').on(t.ownerId,t.createdAt)]);
+
+// Stable stock voices and shared reply audio; the usage ledger survives room deletion.
+export const roomVoices=sqliteTable('room_voices',{roomId:text('room_id').notNull().references(()=>rooms.id,{onDelete:'cascade'}),ownerId:text('owner_id').notNull(),voiceId:text('voice_id').notNull()},t=>[primaryKey({columns:[t.roomId,t.ownerId]}),uniqueIndex('room_voices_room_voice').on(t.roomId,t.voiceId)]);
+export const replyAudio=sqliteTable('reply_audio',{responseId:text('response_id').primaryKey().references(()=>responses.id,{onDelete:'cascade'}),roomId:text('room_id').notNull().references(()=>rooms.id,{onDelete:'cascade'}),voiceId:text('voice_id').notNull(),characters:integer('characters').notNull(),status:text('status').notNull(),audio:blob('audio',{mode:'buffer'}),createdAt:integer('created_at').notNull()},t=>[index('reply_audio_budget').on(t.createdAt),index('reply_audio_room').on(t.roomId,t.status,t.createdAt)]);
+export const audioUsage=sqliteTable('audio_usage',{day:integer('day').primaryKey(),characters:integer('characters').notNull()});

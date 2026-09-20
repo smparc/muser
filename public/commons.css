@@ -129,7 +129,9 @@ dialog::backdrop{background:#172b4938;backdrop-filter:blur(5px)}
 #roomTools{width:min(660px,calc(100vw - 32px))}
 #roomTools .sidebar{display:block;position:static;max-height:none;overflow:visible}
 #roomTools .sidebar>.card{display:none;padding:0;border:0;box-shadow:none}
-#roomTools[data-view="muse"] #myMuseCard,#roomTools[data-view="controls"] #controlsCard,#roomTools[data-view="people"] #peopleCard{display:block}
+#roomTools[data-view="muse"] #myMuseCard,#roomTools[data-view="controls"] #controlsCard,#roomTools[data-view="people"] #peopleCard,#roomTools[data-view="people"] #matchesCard{display:block}
+#roomTools[data-view="people"] #matchesCard{margin-top:22px;border-top:1px solid var(--line);padding-top:20px}
+#roomTools[data-view="people"] #matchesCard .card-head{display:flex}
 #roomTools .controls{border-top:0;background:#fff}
 #roomTools .tabs{background:#f4f6fb;border:0;padding:5px;border-radius:13px;margin:20px 0}
 #roomTools .tabs button{color:#7c8799;padding:9px 5px;font-size:12px}
