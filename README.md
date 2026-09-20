@@ -27,6 +27,12 @@ See [`docs/ACCEPTANCE.md`](docs/ACCEPTANCE.md) for what is verified, what needs 
   - When the round is answered, Gemini judges each pair of people. A verdict only counts if it cites room evidence from both people. Matches appear under the round and in the Matches card.
   - Steps run inside the host's request (model calls take 5–60 s); the host's open dashboard continues the loop after each answered round, so the master pauses while no host has the dashboard open.
   - Key: `GEMINI_API_KEY`. Model `gemini-3.6-flash` (`GEMINI_MODEL`), retried on overload and falling back once to `gemini-3.5-flash` (`GEMINI_FALLBACK_MODEL`). Check a key with `node scripts/check-gemini.mjs`. An `OPENAI_API_KEY` is accepted as an optional second model.
+- **Elastic hybrid search (optional)**: with `ELASTIC_URL` and `ELASTIC_API_KEY` set, the master retrieves its evidence instead of reading the whole room.
+  - Before each step the room's evidence is mirrored into the `commonroom-evidence` index, one document per citable item, keyed by the same ID the models cite (`fact:…`, `reply:…`, `muse:…`, `person:…`). D1 stays the source of truth, so hidden facts, revoked Muses and sources an owner turned off disappear from the index on the next sync.
+  - Questions retrieve what matters for the room, the pair or the single Muse being asked. Match judging searches each person's evidence using the other person's own words, which is where BM25 and ELSER semantic matching (blended with RRF) beat sending everything.
+  - Retrieval only narrows what a model sees; citations are still grounded against the full evidence set, so a claim citing something unretrieved is downgraded exactly as before. Any Elastic failure falls back to sending the whole room.
+  - Semantic matching uses ELSER through a `semantic_text` field. The preconfigured endpoint is `.elser-2-elastic` on serverless and `.elser-2-elasticsearch` on stateful deployments; set `ELASTIC_INFERENCE_ID` for anything else (`GET _inference` lists them).
+  - Set up the index and check the deployment with `node scripts/check-elastic.mjs` (never prints the key). Without the two variables nothing changes. Add `--recreate` if the index was built against a different inference endpoint; no data is lost, because the next master step rebuilds it from D1.
 - **Muse ↔ Muse conversations and observer**: the host picks two Muses, a topic and 2–20 replies; each reply is relayed to the other Muse. After each pair of replies the observer (Gemini, or OpenAI if only that key is set) reports grounded overlaps, open questions and a possible next step, citing the two Muses' profiles, facts and replies. The host's open dashboard requests these analyses.
 - **Host controls**: the master, a round for every Muse, a single (optionally delayed) question, or a Muse ↔ Muse conversation.
 - **Key lifecycle**: seven-day expiry shown in the dashboard; replace (the old key dies immediately); renew an expired key; revoke; create a fresh connection after revocation.
@@ -104,6 +110,9 @@ pnpm worker:migrate:remote
 pnpm worker:deploy                         # prints https://commonroom.<account>.workers.dev
 # the master; enter the key at the prompt, never in the repo
 npx wrangler secret put GEMINI_API_KEY --config worker/wrangler.jsonc
+# optional: Elastic hybrid search for the master's evidence
+npx wrangler secret put ELASTIC_URL --config worker/wrangler.jsonc
+npx wrangler secret put ELASTIC_API_KEY --config worker/wrangler.jsonc
 # optional: restrict who can create owner accounts
 npx wrangler secret put OWNER_SIGNUP_CODE --config worker/wrangler.jsonc
 node scripts/smoke.mjs https://commonroom.<account>.workers.dev

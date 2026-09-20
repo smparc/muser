@@ -432,6 +432,10 @@ function renderMaster() {
   $('masterModels').innerHTML = models.length === 2 ? models.join('<span class="swap">⇄</span>')
     : models.length === 1 ? models[0] + '<span class="muted small"> · drafts, reviews and judges</span>'
     : '<span class="warn small">No AI key on the server. Add GEMINI_API_KEY to worker/.dev.vars to enable the master.</span>';
+  // Where the evidence behind each question and verdict comes from.
+  if (models.length) $('masterModels').innerHTML += ms.search === 'elastic'
+    ? '<span class="muted small search-layer"> · evidence chosen by Elastic hybrid search (BM25 + ELSER)</span>'
+    : '<span class="muted small search-layer"> · reading the whole room</span>';
   const waiting = /^Waiting/.test(ms.status ?? ''), thinking = masterBusy || ms.busy || /Writing|Deciding|Starting/.test(ms.status ?? '');
   $('masterDot').className = 'dot ' + (ms.error ? 'off' : thinking ? 'wait' : running ? 'on' : 'idle');
   const now = masterBusy ? (ms.status && /Waiting|ready/.test(ms.status) ? 'Thinking…' : (ms.status || 'Thinking…')) + ' (model calls take a few seconds)' : (ms.status ?? 'Running');
