@@ -147,7 +147,9 @@ dialog::backdrop{background:#172b4938;backdrop-filter:blur(5px)}
 .project-item{border:1px solid var(--line);border-radius:17px;padding:18px;margin:12px 0;background:#fbfcff}
 .project-item h3{margin:0 0 8px;font-size:14px}.project-item p{font-size:13px;color:#7b869b;overflow-wrap:anywhere}
 .person summary{padding:15px 0;gap:12px}.person-name{font-size:14px}.person-body{font-size:13px;line-height:1.7;padding:0 0 15px 50px}
-.muse-row{padding:16px 0}.muse-name{font-size:14px}.muse-row .small{font-size:11px;margin-top:6px}
+.muse-row{padding:16px 0}
+.voice-row{display:flex;align-items:center;gap:9px;font-size:12px;color:#7b869b;margin:10px 0 0}
+.voice-row select{flex:1;min-width:0;font-size:12px;padding:7px 9px}.muse-name{font-size:14px}.muse-row .small{font-size:11px;margin-top:6px}
 .auth-welcome{text-align:center;padding-top:28px;margin-bottom:28px}
 .auth-welcome h1{font-size:38px;letter-spacing:-1.5px}.auth-welcome p{font-size:18px;color:#8a93a4;margin-top:10px}
 .narrow{max-width:440px;margin:28px auto;padding:30px}.narrow h1{font-size:23px;margin-bottom:12px}.narrow .primary{width:100%;margin-top:8px}.narrow form>.link{display:block;margin:16px auto 0;font-size:12px}

@@ -127,6 +127,13 @@
       "when": 1789878098997,
       "tag": "0017_gptzero_checks",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1789880124905,
+      "tag": "0018_muse_voices",
+      "breakpoints": true
     }
   ]
 }

@@ -48,3 +48,5 @@ export const audioUsage=sqliteTable('audio_usage',{day:integer('day').primaryKey
 // kind 'reply' (ref_id = response_id): a Muse message, AI by design; the score is shown for transparency.
 // ai_probability is stored as an integer percentage so D1 keeps the value exact.
 export const textChecks=sqliteTable('text_checks',{kind:text('kind').notNull(),refId:text('ref_id').notNull(),textHash:text('text_hash').notNull(),classification:text('classification').notNull(),aiProbability:integer('ai_probability'),confidence:text('confidence'),checkedAt:integer('checked_at').notNull()},t=>[primaryKey({columns:[t.kind,t.refId]})]);
+// Owner's chosen voice for one Muse, keyed by its root connection id so it carries across rooms.
+export const museVoices=sqliteTable('muse_voices',{museId:text('muse_id').primaryKey(),ownerId:text('owner_id').notNull(),voiceId:text('voice_id').notNull(),updatedAt:integer('updated_at').notNull()},t=>[index('muse_voices_owner').on(t.ownerId)]);
