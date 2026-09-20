@@ -9,13 +9,10 @@ export function seedFor(value) {
 }
 
 export function createMuse({seed = 1, accessory = 'scarf', detail = 1, identity = seed, connectionStatus = 'connected'} = {}) {
-  let randomSeed = seed || 1;
-  const random = () => { randomSeed = (Math.imul(1664525, randomSeed) + 1013904223) >>> 0; return randomSeed / 4294967296; };
   const root = new THREE.Group();
   root.name = 'Muse';
   const rig = new THREE.Group(); root.add(rig);
   const cream = new THREE.MeshStandardMaterial({color: 0xf5e8d1, roughness: .96});
-  const furMaterial = new THREE.MeshStandardMaterial({color: 0xf2e4ce, roughness: 1});
   const faceMaterial = new THREE.MeshStandardMaterial({color: 0xf3d0ab, roughness: .84});
   const blue = new THREE.MeshStandardMaterial({color: 0x3268da, roughness: .88});
   const blueLight = new THREE.MeshStandardMaterial({color: 0x7195e1, roughness: .94});
@@ -25,30 +22,12 @@ export function createMuse({seed = 1, accessory = 'scarf', detail = 1, identity 
   const white = new THREE.MeshBasicMaterial({color: 0xffffff});
   const identityMaterial = new THREE.MeshStandardMaterial({color: 0x7195e1, roughness: .72});
   const statusMaterial = new THREE.MeshBasicMaterial({color: 0x42b881, transparent: true, opacity: .82});
-  const sphere = new THREE.SphereGeometry(1, 28, 20);
-  const tuft = new THREE.SphereGeometry(1, 6, 4);
+  // Segment counts scale with detail: on a phone the silhouette stays round without the extra triangles.
+  const segments = Math.max(20, Math.round(44 * detail)), rings = Math.max(14, Math.round(30 * detail));
+  const sphere = new THREE.SphereGeometry(1, segments, rings);
   const ball = (parent, material, scale, position) => {
     const m = new THREE.Mesh(sphere, material); m.scale.set(...scale); m.position.set(...position);
     m.castShadow = true; m.receiveShadow = true; parent.add(m); return m;
-  };
-  const wool = (parent, radii, center, count, faceCutout = false) => {
-    const mesh = new THREE.InstancedMesh(tuft, furMaterial, Math.round(count * detail));
-    const dummy = new THREE.Object3D();
-    for (let i = 0; i < mesh.count; i++) {
-      const y = random() * 2 - 1, theta = random() * Math.PI * 2, radius = Math.sqrt(1 - y * y);
-      const x = radius * Math.cos(theta), z = radius * Math.sin(theta);
-      // Keep the peach face and embroidered M clear of tufts.
-      if ((faceCutout && z > .60 && y > -.65 && y < .7) || (!faceCutout && z > .87 && Math.abs(y) < .3)) { i--; continue; }
-      dummy.position.set(center[0] + x * radii[0], center[1] + y * radii[1], center[2] + z * radii[2]);
-      const size = .012 + random() * .015;
-      dummy.scale.set(size * .8, size * (1.15 + random() * .65), size * .8);
-      dummy.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(x, y, z));
-      dummy.updateMatrix(); mesh.setMatrixAt(i, dummy.matrix);
-    }
-    mesh.instanceMatrix.needsUpdate = true;
-    mesh.raycast = () => {}; // Pick the solid body, not thousands of individual tufts.
-    parent.add(mesh);
-    return mesh;
   };
   const curve = (parent, points, thickness, material) => {
     const path = new THREE.CatmullRomCurve3(points.map(p => new THREE.Vector3(...p)));
@@ -57,10 +36,8 @@ export function createMuse({seed = 1, accessory = 'scarf', detail = 1, identity 
   };
 
   ball(rig, cream, [.66, .85, .51], [0, 1.04, 0]);
-  wool(rig, [.66, .85, .51], [0, 1.04, 0], 1200);
   const head = new THREE.Group(); head.position.y = 1.94; rig.add(head);
   ball(head, cream, [.79, .78, .61], [0, 0, 0]);
-  wool(head, [.79, .78, .61], [0, 0, 0], 1700, true);
   ball(head, faceMaterial, [.56, .48, .145], [0, -.03, .51]);
   const eyes = [];
   for (const side of [-1, 1]) {
@@ -74,7 +51,6 @@ export function createMuse({seed = 1, accessory = 'scarf', detail = 1, identity 
   for (const side of [-1, 1]) {
     const shoulder = new THREE.Group(); shoulder.position.set(side * .58, 1.38, 0); rig.add(shoulder);
     ball(shoulder, cream, [.23, .4, .25], [side * .12, -.25, .07]);
-    wool(shoulder, [.23, .4, .25], [side * .12, -.25, .07], 180);
     arms.push(shoulder);
     const foot = new THREE.Group(); foot.position.set(side * .31, .22, .17); rig.add(foot);
     ball(foot, cream, [.28, .23, .38], [0, 0, .04]); feet.push(foot);
