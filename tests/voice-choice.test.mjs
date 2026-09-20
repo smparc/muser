@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {handle,digest} from '../lib/api.mjs';
+import {digest} from '../lib/api.mjs';
 import {speakReply,voiceCatalog,setMuseVoice} from '../lib/room-audio.mjs';
 import {id,secret} from '../lib/http.mjs';
-import {sqliteD1,origin,onboard} from './helpers.mjs';
+import {sqliteD1,onboard} from './helpers.mjs';
 
 const HAYDEN='whtn8K2jpyL49m4VzNGr';
 const CATALOG={voices:[
@@ -56,7 +56,7 @@ test('a Muse speaks with the voice its owner chose, in every room',async()=>{
  assert.equal(owned,HAYDEN);
 
  const used=[];
- const speechFetcher=async(url,init)=>{
+ const speechFetcher=async(url)=>{
   if(String(url).includes('/v2/voices'))return {ok:true,json:async()=>CATALOG};
   used.push(String(url));
   return {ok:true,headers:new Headers({'Content-Type':'audio/mpeg'}),body:new Blob([new Uint8Array([1,2,3])]).stream()};

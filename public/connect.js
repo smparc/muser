@@ -19,8 +19,8 @@ function loadVoices() {
 // One <select> per Muse. "Chosen for me" keeps the automatic assignment that picks a distinct
 // voice per person in each room.
 function voicePicker(museId) {
-  if (!voiceCatalog) return '<p class="muted small voice-row">Loading voices…</p>';
-  if (!voiceCatalog.available) return '';
+  if (!voiceCatalog) return '<label class="voice-row">Voice<select disabled><option>Loading voices…</option></select></label>';
+  if (!voiceCatalog.available) return '<label class="voice-row">Voice<select disabled><option>Not switched on for this Muser</option></select></label>';
   const current = (state.my_muses ?? []).find(m => m.id === museId)?.voice_id ?? '';
   const options = ['<option value="">Chosen for me</option>']
     .concat(voiceCatalog.voices.map(v => `<option value="${esc(v.id)}"${v.id === current ? ' selected' : ''}>${esc(v.name)}${v.category && v.category !== 'premade' ? ' · ' + esc(v.category) : ''}</option>`));
