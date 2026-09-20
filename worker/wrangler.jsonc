@@ -5,7 +5,15 @@
   "main": "index.mjs",
   "compatibility_date": "2026-05-15",
   "compatibility_flags": ["nodejs_compat"],
-  "workers_dev": true,
+  // Served on muser.work only; the account has no workers.dev subdomain registered.
+  "workers_dev": false,
+  // Custom domain: deploy creates the DNS records and the certificate. PUBLIC_ORIGIN pins issued links, the OpenAPI
+  // spec and the agent guide to this origin whatever host the request arrived on.
+  "routes": [
+    { "pattern": "muser.work", "custom_domain": true },
+    { "pattern": "www.muser.work", "custom_domain": true }
+  ],
+  "vars": { "PUBLIC_ORIGIN": "https://muser.work" },
   "assets": {
     "directory": "../public",
     "binding": "ASSETS",
@@ -16,17 +24,15 @@
     {
       "binding": "DB",
       "database_name": "commonroom",
-      // Replace with the ID printed by: wrangler d1 create commonroom
-      "database_id": "00000000-0000-4000-8000-000000000000",
+      // Created with: wrangler d1 create commonroom
+      "database_id": "1924d15f-d9db-4468-8eee-019952e3f0bd",
       "migrations_dir": "../drizzle"
     }
   ],
-  "r2_buckets": [
-    {
-      "binding": "MEDIA",
-      "bucket_name": "commonroom-media"
-    }
-  ],
+  // Media storage for the social feed. R2 is not enabled on this account, so the binding is left out and the
+  // feed's upload and image routes answer 503 media_unavailable. To turn it on: enable R2 in the dashboard,
+  // run `wrangler r2 bucket create commonroom-media`, and restore this block.
+  // "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "commonroom-media" }],
   "observability": { "enabled": true }
   // Optional secret gating owner sign-up: wrangler secret put OWNER_SIGNUP_CODE --config worker/wrangler.jsonc
 }
