@@ -74,6 +74,7 @@ $('profileForm').onsubmit = async e => {
     const r = await api('/profile', 'PUT', body);
     delete $('profileForm').dataset.dirty;
     $('profileSave').textContent = r.shared_in_rooms ? `Saved · shared in ${r.shared_in_rooms} room${r.shared_in_rooms === 1 ? '' : 's'}` : 'Saved';
+    showWrittenBy(r.authenticity);
     setTimeout(() => $('profileSave').textContent = 'Save profile', 2500);
     await load();
   } catch (err) { showError(err); } finally { $('profileSave').disabled = false; }
@@ -89,3 +90,16 @@ $('profileForm').onsubmit = async e => {
     if (err.status === 401 || err.code === 'identity_unavailable') $('signedOutNote').hidden = false; else showError(err);
   }
 })();
+
+// GPTZero reads the profile as you wrote it: the room shows everyone whether their words are their own.
+function showWrittenBy(check) {
+  const el = $('profileWrittenBy');
+  if (!el) return;
+  if (!check || check.classification === 'too_short') { el.hidden = true; return; }
+  const ai = check.classification === 'AI_ONLY', mixed = check.classification === 'MIXED';
+  el.hidden = false;
+  el.className = 'status-line ' + (ai ? 'warn' : '');
+  el.textContent = ai ? `GPTZero reads this profile as AI-written (${check.ai_probability}% AI). Everyone in your rooms sees that — rewrite it in your own words if that is not what you meant.`
+    : mixed ? 'GPTZero reads this profile as partly AI-written. Everyone in your rooms sees that.'
+    : 'GPTZero reads this profile as your own words.';
+}

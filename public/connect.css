@@ -235,3 +235,7 @@ body.is-archived .chat{background:#f6f5f8}
 .hidden-fact .link{text-decoration:none}
 .facts-empty{margin:4px 0 0}
 .bring{display:grid;gap:6px;margin:8px 0}.bring button{justify-self:start}
+/* GPTZero provenance badges: who actually wrote this text. */
+.written{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;margin-left:6px;vertical-align:middle}
+.written.human{background:#eaf9f2;color:#188258}.written.ai{background:#eef2fb;color:#4a5b7c}.written.mixed{background:#fff6e6;color:#8a6110}
+.stamp .written{margin-left:0;font-weight:500}

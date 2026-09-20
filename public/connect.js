@@ -43,6 +43,7 @@ async function refresh() {
     if (!$('ownerName').textContent) $('ownerName').textContent = state.owner.name;
     render();
     $('refreshStatus').textContent = 'Live · updated ' + clock(Date.now());
+    $('chatFoot').hidden = !state.responses.some(r => r.authenticity);
   } catch (err) {
     if (err.code === 'identity_unavailable') show('signInIssue');
     else if (err.status === 401) { clearIssued(); show(mode === 'password' ? 'authPanel' : 'signedOut'); }
@@ -157,11 +158,26 @@ function matchCard(m, compact) {
   return `<div class="match ${esc(m.verdict)}"><div class="match-head"><b>${esc(personOf(m.a_id))} ↔ ${esc(personOf(m.b_id))}</b><span class="verdict">${m.verdict === 'match' ? 'Match' : 'Possible match'}</span></div>
     <p>${esc(m.summary)}</p><div class="votes">${votes}</div>${compact ? '' : `<details><summary>Evidence</summary>${evidence}</details>`}</div>`;
 }
+// GPTZero provenance. Muse messages are AI by design, so their badge is transparency; a person's profile is the
+// room's ground truth about a human, so an AI-written one is worth flagging to everyone.
+function writtenBadge(check) {
+  if (!check || check.classification === 'too_short') return '';
+  const ai = check.classification === 'AI_ONLY', mixed = check.classification === 'MIXED';
+  const pct = check.ai_probability === null || check.ai_probability === undefined ? '' : ` · ${check.ai_probability}% AI`;
+  const label = ai ? 'AI-written' : mixed ? 'part AI-written' : 'human-written';
+  return `<span class="written ${ai ? 'ai' : mixed ? 'mixed' : 'human'}" title="GPTZero: ${esc(check.classification)}${esc(pct)}">${label}</span>`;
+}
+// A person's own words, checked when they save their profile.
+function profileBadge(m) {
+  if (!m.profile_written_by || m.profile_written_by === 'too_short') return '';
+  return writtenBadge({classification: m.profile_written_by, ai_probability: m.profile_ai_probability}) +
+    (m.profile_written_by === 'HUMAN_ONLY' ? '' : '<span class="muted small"> profile</span>');
+}
 function bubble(r) {
   const c = conn(r.connection_id), mine = !!c?.mine;
   return `<div class="msg ${mine ? 'me' : 'them'}">
     ${mine ? '' : `<div class="avatar" title="${esc(r.name)}">${esc(initials(c?.owner_name || r.name))}</div>`}
-    <div><div class="sender">${esc(r.name)}${c && !mine ? ` <span>· ${esc(c.owner_name)}</span>` : ''}</div><div class="bubble">${esc(r.text)}</div><div class="stamp">${clock(r.created_at)}</div></div>
+    <div><div class="sender">${esc(r.name)}${c && !mine ? ` <span>· ${esc(c.owner_name)}</span>` : ''}</div><div class="bubble">${esc(r.text)}</div><div class="stamp">${clock(r.created_at)}${r.authenticity ? ' · ' + writtenBadge(r.authenticity) : ''}</div></div>
   </div>`;
 }
 // Pending work is shown only as what was recorded: queued, fetched (writing) or scheduled.
@@ -466,7 +482,7 @@ function renderPeople() {
       + museProfiles.map(p => `<p class="muted small">Published by ${esc(p.name)}:</p>${profileLines(p.profile)}`).join('')
       + muses.filter(c => !c.mine && factsOf(c.id).length).map(c => `<p class="muted small">From ${esc(c.name)}'s connected apps:</p><ul class="facts">${factsOf(c.id).map(f => factLine(f, isHost())).join('')}</ul>`).join('');
     return `<details class="person" data-id="${esc(m.id)}"${open.has(m.id) ? ' open' : ''}>
-      <summary><span class="avatar">${esc(initials(m.name))}</span><span class="person-name">${esc(m.name)}${m.you ? ' <span class="muted">(you)</span>' : ''}</span>${m.role === 'host' ? '<span class="badge">host</span>' : ''}</summary>
+      <summary><span class="avatar">${esc(initials(m.name))}</span><span class="person-name">${esc(m.name)}${m.you ? ' <span class="muted">(you)</span>' : ''}</span>${m.role === 'host' ? '<span class="badge">host</span>' : ''}${profileBadge(m)}</summary>
       <div class="person-body">
         ${muses.map(c => { const l = liveness(c); return `<div class="muse-line"><span class="dot ${l.dot}"></span>${esc(c.name)} <span class="muted small">· ${esc(l.text)}</span>${isHost() && !c.mine ? ` <button type="button" class="link danger" data-revoke="${esc(c.id)}">remove</button>` : ''}</div>`; }).join('') || '<p class="muted small">No Muse connected.</p>'}
         ${body}

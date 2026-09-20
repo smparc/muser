@@ -6,6 +6,7 @@ import {handleMcp} from '../lib/mcp.mjs';
 import {openapiSpec} from '../lib/openapi.mjs';
 import {setupPage} from '../lib/setup-links.mjs';
 import {masterRuntime} from '../lib/master-runtime.mjs';
+import {authenticityRuntime} from '../lib/authenticity.mjs';
 
 const PUBLIC_HEADERS={'Cache-Control':'no-cache','X-Content-Type-Options':'nosniff','Access-Control-Allow-Origin':'*'};
 
@@ -19,7 +20,9 @@ export default {
    const asset=await env.ASSETS.fetch(new Request(new URL('/agent-guide.md',url)));
    return new Response((await asset.text()).replaceAll('{{ORIGIN}}',url.origin),{headers:{...PUBLIC_HEADERS,'Content-Type':'text/markdown; charset=utf-8'}});
   }
-  const runtime=masterRuntime(env.DB,env,ctx?.waitUntil?work=>ctx.waitUntil(work):undefined);
+  const waitUntil=ctx?.waitUntil?work=>ctx.waitUntil(work):undefined;
+  const runtime=masterRuntime(env.DB,env,waitUntil);
+  runtime.authenticity=authenticityRuntime(env,waitUntil);
   // A QR setup link: instructions for the Muse that scanned it (reading does not use the code).
   const setup=path.match(/^\/s\/([^/]+)$/);
   if(setup&&(req.method==='GET'||req.method==='HEAD')){const p=await setupPage(env.DB,setup[1],url.origin);return new Response(p.text,{status:p.status,headers:{'Content-Type':'text/markdown; charset=utf-8','Cache-Control':'no-store','X-Robots-Tag':'noindex','Referrer-Policy':'no-referrer'}});}
