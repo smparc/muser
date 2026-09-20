@@ -40,18 +40,30 @@
   authWelcome.className = 'auth-welcome'; authWelcome.id = 'authWelcome';
   authWelcome.innerHTML = '<span class="welcome-kicker">Welcome to the commons</span><h1>A little world for your Muse.</h1><p>Meet, talk, discover.</p>';
   $('authPanel').before(authWelcome);
-  const titles = {muse: 'Your Muse', controls: 'Start a conversation', people: 'People in your room', spaces: 'Your spaces', projects: 'What people are working on', settings: 'Connection settings'};
+  const titles = {muse: 'Your Muse', controls: 'Start a conversation', people: 'People and matches', spaces: 'Your spaces', projects: 'What people are working on', settings: 'Connection diagnostics'};
   let lastRoom = null, pendingView = location.hash.slice(1), lastState = null;
 
+  // Panels are addressable, so a reload or a shared link reopens what the reader was looking at.
+  let syncingHash = false;
+  function setHash(value) {
+    const next = value ? '#' + value : '#chat';
+    if (location.hash === next) return;
+    syncingHash = true;
+    history.replaceState(null, '', location.pathname + location.search + next);
+    syncingHash = false;
+  }
   function openView(view) {
     if (view === 'home' || view === 'messages') { location.href = view === 'home' ? '/' : '/room3d.html#messages'; return; }
     if (view === 'chat') { tools.close(); return; } // The room page itself, with no panel over it.
     if (!lastState || workspace.hidden) { $('authPanel').querySelector('input')?.focus(); return; }
-    if (view === 'join') { tools.close(); $('openJoin')?.click(); return; } // Straight to the invite-code form.
+    if (view === 'join') { tools.close(); $('openJoin')?.click(); setHash('join'); return; } // Straight to the invite-code form.
     if (titles[view]) {
       tools.dataset.view = view;
       $('toolsTitle').textContent = titles[view];
+      // Diagnostics is the whole point of this panel, so do not make the reader expand it first.
+      if (view === 'settings') diagnostics.open = true;
       if (!tools.open) tools.showModal();
+      setHash(view);
     }
     document.querySelectorAll('[data-nav]').forEach(a => {
       const selected = a.dataset.nav === view;
@@ -66,8 +78,9 @@
     if (view === 'profile') return;
     e.preventDefault(); openView(view);
   });
-  addEventListener('hashchange', () => { pendingView = location.hash.slice(1); if (lastState) { openView(pendingView || 'home'); pendingView = ''; } });
+  addEventListener('hashchange', () => { if (syncingHash) return; pendingView = location.hash.slice(1); if (lastState) { openView(pendingView || 'home'); pendingView = ''; } });
   tools.addEventListener('close', () => {
+    setHash('chat');
     document.querySelectorAll('[data-nav]').forEach(a => {
       const home = a.dataset.nav === 'home'; a.classList.toggle('active', home);
       if (home) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');

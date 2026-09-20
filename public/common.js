@@ -26,8 +26,14 @@ async function request(path, method = 'GET', data) {
 const api = (path, method, data) => request('/api/owner' + path, method, data);
 
 // Selected room is a per-browser convenience only; the server decides what each owner may see.
-const ROOM_KEY = 'commonroom.room';
-let currentRoom = (() => { try { return localStorage.getItem(ROOM_KEY); } catch { return null; } })();
+const ROOM_KEY = 'muser.room', LEGACY_ROOM_KEY = 'commonroom.room';
+let currentRoom = (() => {
+  try {
+    const legacy = localStorage.getItem(LEGACY_ROOM_KEY);
+    if (legacy && !localStorage.getItem(ROOM_KEY)) { localStorage.setItem(ROOM_KEY, legacy); localStorage.removeItem(LEGACY_ROOM_KEY); }
+    return localStorage.getItem(ROOM_KEY);
+  } catch { return null; }
+})();
 function selectRoom(id) { currentRoom = id; try { id ? localStorage.setItem(ROOM_KEY, id) : localStorage.removeItem(ROOM_KEY); } catch {} }
 async function loadState() {
   try { return await api('/state' + (currentRoom ? '?room=' + encodeURIComponent(currentRoom) : '')); }
@@ -68,7 +74,7 @@ async function copyKeyToClipboard(key, statusEl) {
   let copied = false;
   try { await navigator.clipboard.writeText(key); copied = true; } catch {}
   if (statusEl) statusEl.textContent = copied
-    ? 'Key copied to your clipboard. Paste it into the page Muse shows you; you never have to read or type it.'
+    ? 'Key copied to your clipboard. Paste it into the page Muse shows you; you never have to read or type it. It stays on the clipboard until you copy something else.'
     : 'Copy the key with the button below, then paste it into the page Muse shows you.';
   return copied;
 }

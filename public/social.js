@@ -1,6 +1,6 @@
 'use strict';
 
-const socialState = { posts: [], feed: [], mues: [], roomId: null };
+const socialState = { posts: [], feed: [], muses: [], roomId: null, isHost: true };
 const first = (...values) => values.find(value => value !== undefined && value !== null && value !== '');
 const listFrom = value => Array.isArray(value) ? value : (value?.posts || value?.items || value?.data || []);
 const mediaFor = post => first(post.image_url, post.media_url, post.image, post.media, post.url);
@@ -8,15 +8,29 @@ const museName = muse => first(muse.name, muse.display_name, muse.muse_name, 'Yo
 
 function renderMuseOptions() {
   const select = $('museSelect');
-  const mues = socialState.mues;
-  select.innerHTML = mues.length ? '<option value="">Choose a Muse…</option>' : '<option value="">No Muses connected yet</option>';
-  mues.forEach(muse => {
+  const muses = socialState.muses;
+  select.innerHTML = muses.length ? '<option value="">Choose a Muse…</option>' : '<option value="">No Muses connected yet</option>';
+  muses.forEach(muse => {
     const option = document.createElement('option');
     option.value = first(muse.id, muse.muse_id, muse.connection_id);
     option.textContent = museName(muse);
     select.append(option);
   });
-  select.disabled = !mues.length;
+  select.disabled = !muses.length;
+  syncUploadAvailability();
+}
+
+// Why this room cannot take an image, or '' when it can. Checked up front so the person is not
+// sent to the server only to get a field-validation error back.
+function uploadBlockedReason() {
+  if (!socialState.muses.length) return 'Connect a Muse to this room before authorizing an image.';
+  if (!socialState.isHost) return 'Only the host of this room can authorize images here. Switch to a room you host.';
+  return '';
+}
+function syncUploadAvailability() {
+  const blocked = uploadBlockedReason();
+  $('authorizeButton').disabled = !!blocked;
+  $('uploadBlocked').textContent = blocked;
 }
 
 function imageMarkup(post, className = 'post-image') {
@@ -49,10 +63,11 @@ function renderFeed() {
 }
 
 async function loadSocial() {
-  const [mine, feed, ownerState] = await Promise.all([request('/api/owner/social/posts'), request('/api/social/feed'), request('/api/owner/state').catch(() => null)]);
+  const [mine, feed, ownerState] = await Promise.all([request('/api/owner/social/posts'), request('/api/social/feed'), loadState().catch(() => null)]);
   socialState.posts = listFrom(mine);
   socialState.roomId = ownerState?.room?.id || null;
-  socialState.mues = ownerState?.connections?.filter(connection => connection.mine !== false && !connection.revoked_at && connection.status !== 'expired' && connection.status !== 'revoked') || [];
+  socialState.isHost = ownerState?.room?.role === 'host';
+  socialState.muses = ownerState?.connections?.filter(connection => connection.mine !== false && !connection.revoked_at && connection.status !== 'expired' && connection.status !== 'revoked') || [];
   socialState.feed = listFrom(feed);
   renderMuseOptions(); renderPending(); renderFeed();
 }
@@ -94,7 +109,7 @@ $('postForm').onsubmit = async event => {
     $('postForm').reset(); $('imagePreview').hidden = true; $('uploadZone').classList.remove('has-image'); $('fileName').textContent = 'PNG, JPG or WEBP · up to 10 MB';
     $('uploadStatus').textContent = 'Authorized — your Muse will draft a caption.';
     await loadSocial();
-  } catch (err) { showError(err); } finally { $('authorizeButton').disabled = false; if (!$('uploadStatus').textContent.startsWith('Authorized')) $('uploadStatus').textContent = ''; }
+  } catch (err) { showError(err); } finally { syncUploadAvailability(); if (!$('uploadStatus').textContent.startsWith('Authorized')) $('uploadStatus').textContent = ''; }
 };
 $('refreshButton').onclick = async () => { $('refreshButton').disabled = true; try { await loadSocial(); } catch (err) { showError(err); } finally { $('refreshButton').disabled = false; } };
 

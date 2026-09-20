@@ -30,6 +30,8 @@ h1{font-size:32px}h2{font-size:18px}h3{font-size:15px}
 .app-rail a.active::before{background:#eaf1ff}
 .app-rail nav a:hover,.rail-bottom a:hover{color:var(--brand)}
 .rail-bottom{margin-top:auto;padding-bottom:22px;width:100%}
+.rail-signout{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:7px;width:100%;min-height:67px;padding:0;border:0;background:0;color:#737989;font-size:12px;cursor:pointer}
+.rail-signout:hover{color:var(--brand)}
 .topbar{height:76px;position:sticky;top:0;margin-left:88px;padding:0 28px;flex-wrap:nowrap;border-bottom:1px solid var(--line);background:rgba(255,255,255,.96);z-index:15;gap:20px}
 .topbar .brand{color:#10162a;font-size:27px;font-weight:700;letter-spacing:-1.3px;margin:0;white-space:nowrap}
 .topbar .top-tabs{display:flex;gap:18px;margin:auto;flex-wrap:nowrap}

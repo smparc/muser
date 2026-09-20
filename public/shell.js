@@ -21,6 +21,23 @@
     else accountArea.insertAdjacentHTML('beforeend', '<a class="account-avatar" href="/profile.html" aria-label="Your profile">' + icon('profile') + '</a>');
     if (picker) document.querySelector('.room-head')?.append(picker);
   }
+  // Pages built on common.js have a Sign out in the header; the commons does not, so the rail
+  // grows one there. It is only shown once a password-mode session is confirmed.
+  if (!document.getElementById('signOut')) {
+    const out = document.createElement('button');
+    out.type = 'button'; out.className = 'rail-signout'; out.hidden = true;
+    out.innerHTML = icon('profile') + '<span>Sign out</span>';
+    out.onclick = async () => {
+      out.disabled = true;
+      try { await fetch('/api/auth/logout', {method: 'POST', credentials: 'same-origin'}); } catch {}
+      location.href = '/connect.html';
+    };
+    rail.querySelector('.rail-bottom').append(out);
+    fetch('/api/auth/session', {credentials: 'same-origin'})
+      .then(r => r.json())
+      .then(s => { out.hidden = !(s.mode === 'password' && s.owner); })
+      .catch(() => {});
+  }
   const owner = document.getElementById('ownerName');
   if (owner) {
     const avatar = document.createElement('a');

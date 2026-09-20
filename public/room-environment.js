@@ -49,5 +49,24 @@ export function createRoom(scene) {
   for(const [x,z,s] of [[-9,-6.8,1.7],[-3.5,-6.7,1.5],[5.9,-5.9,1.7],[8.5,-4.5,1.8],[9.3,2.5,1.8],[-9,2.8,1.7],[-7,7.5,1.3],[7,7.7,1.3]]) plant(x,z,s);
   // A pair of small side seats gives unoccupied Muses somewhere to gather.
   for(const side of [-1,1]) {cylinder(1.35,1.4,.65,lightBlue,side*7,.48,3.7);cylinder(1.27,1.27,.15,linen,side*7,.86,3.7);}
+  // A little library and ceramics along the back edge keep the conversation floor clear.
+  box(3.1,.16,.75,oak,7.5,.72,-8.2,.04);
+  for(const x of [6.2,8.8])box(.16,.72,.62,darkOak,x,.36,-8.2,.03);
+  const coral=material(0xd99c86),sage=material(0x91a98a);
+  for(let i=0;i<7;i++){
+    const book=box(.19,.45+(i%3)*.09,.38,[blue,linen,sage,coral][i%4],6.5+i*.24,1.03+(i%3)*.045,-8.2,.015);
+    book.rotation.z=i===6?-.12:0;
+  }
+  cylinder(.17,.22,.42,coral,8.5,1.01,-8.2);
+  plant(8.5,-8.2,.32,1.2);
+  // A warm floor lamp beside the lounge, and two cups on the shared table.
+  cylinder(.36,.4,.09,darkOak,-2.5,.13,-4.7);
+  cylinder(.035,.035,2.6,darkOak,-2.5,1.46,-4.7);
+  add(new THREE.CylinderGeometry(.35,.62,.55,24),new THREE.MeshStandardMaterial({color:0xffe7bd,emissive:0xffd58c,emissiveIntensity:.2,roughness:1}),-2.5,2.8,-4.7);
+  for(const [x,z,mat] of [[1.25,-.35,coral],[-.35,-1.35,sage]]){
+    cylinder(.13,.1,.2,mat,x,1.07,z);
+    const handle=add(new THREE.TorusGeometry(.075,.02,6,16),mat,x+.14,1.07,z);handle.rotation.y=Math.PI/2;
+    cylinder(.1,.1,.007,darkOak,x,1.174,z);
+  }
   return group;
 }

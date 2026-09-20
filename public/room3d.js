@@ -82,7 +82,7 @@ function startRoom() {
     if($('sceneConnection').textContent!==status.label)$('sceneConnection').textContent=status.label;
     $('sceneConnection').dataset.status=status.tone;
     if($('roomPopulation').textContent!==status.detail)$('roomPopulation').textContent=status.detail;
-    if(!state){$('summary').textContent=status.detail;$('conversationCount').textContent=signedOut?'Your room is a sign-in away.':'Waiting for the room';$('followMuse').disabled=true;$('connectMuse').hidden=true;}
+    if(!state){$('summary').textContent=status.detail;$('conversationCount').textContent=signedOut?'Your room is a sign-in away.':'Waiting for the room';$('followMuse').disabled=true;$('connectMuse').hidden=true;$('followMuse').hidden=false;}
   }
 
   function sync(now) {
@@ -121,6 +121,8 @@ function startRoom() {
         a={model,label,speech,selection,target:new THREE.Vector3(),yaw:0,actor,speechId:null,paired:false,walk:0,arrivedAt:Date.now(),wasPaired:false};avatars.set(id,a);
       }
       a.actor=actor;
+      const sharedProfile=state.profiles?.find(p=>p.connection_id===actor.connection.id)?.profile||state.members?.find(m=>m.id===actor.connection.member_id)?.profile;
+      a.model.setInterests(sharedProfile?.interests||[]);
       a.model.setConnectionState({owner:actor.connection.member_id||actor.connection.owner_id||actor.connection.owner_name||id,status:actor.connection.status});
       const seat=assignments.get(id);a.paired=pairedIds.has(id);
       a.target.set(seat.x,.11,seat.z);a.yaw=Math.atan2(seat.faceX-seat.x,seat.faceZ-seat.z);a.model.root.scale.setScalar(actor.active?1:.9);
@@ -253,18 +255,36 @@ function startRoom() {
   async function load() {
     if(preview||busy||destroyed)return;busy=true;
     try {
-      let room=new URLSearchParams(location.search).get('room');try{room ||= localStorage.getItem('commonroom.room');}catch{}
+      let room=new URLSearchParams(location.search).get('room');try{room ||= localStorage.getItem('muser.room')||localStorage.getItem('commonroom.room');}catch{}
       let response=await fetch('/api/owner/state'+(room?'?room='+encodeURIComponent(room):''),{credentials:'same-origin',signal:AbortSignal.timeout(10000)});
       if(response.status===404&&room)response=await fetch('/api/owner/state',{credentials:'same-origin',signal:AbortSignal.timeout(10000)});
       if(response.status===401){clearRoom();audio.clear("Sign in to your room to enable Muse voices.");state=null;interactions={actors:new Map(),pairs:[]};signedOut=true;stale=false;renderRoomStatus();$('signin').hidden=false;$('emptyRoom').hidden=true;return;}
       if(response.status===403&&(await response.clone().json().catch(()=>({}))).error==='onboarding_required'){location.href='/welcome.html';return;}
       if(!response.ok)throw Error('Room unavailable');
       const next=await response.json();if(next.room.id!==lastRoom){const showMessages=$('roomMessages').open;clearRoom();lastRoom=next.room.id;resetCamera();if(showMessages)messages.open();}
-      try{localStorage.setItem('commonroom.room',next.room.id);}catch{}
+      try{localStorage.setItem('muser.room',next.room.id);localStorage.removeItem('commonroom.room');}catch{}
       const url=new URL(location.href);if(url.searchParams.has('room')){url.searchParams.set('room',next.room.id);history.replaceState(null,'',url);}
       state=next;stale=false;signedOut=false;clockOffset=Number.isFinite(next.server_time)?next.server_time-Date.now():0;$('signin').hidden=true;sync(Date.now()+clockOffset);
+      void stepMaster();
     } catch {stale=true;audio.pause();renderRoomStatus();}
     finally{busy=false;}
+  }
+
+  // A master round advances inside the host's own request, so some host page has to ask for it.
+  // Without this the master silently stalls whenever the host is looking at the room instead of the dashboard.
+  let masterStepping=false;
+  async function stepMaster() {
+    const master=state?.master;
+    if(preview||masterStepping||state?.room?.role!=='host'||state?.room?.archived_at)return;
+    if(master?.mode!=='auto'||!master.ready||master.busy)return;
+    masterStepping=true;
+    try{
+      await fetch('/api/owner/rooms/'+encodeURIComponent(state.room.id)+'/master',{
+        method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({action:'step',force:false}),signal:AbortSignal.timeout(90000),
+      });
+    }catch{/* the next poll tries again */}
+    finally{masterStepping=false;}
   }
   if(preview){$('previewBanner').hidden=false;state=previewState(Date.now(),previewStart);sync(Date.now());}else load();
   const poll=setInterval(()=>{if(!document.hidden)load();},5000);animationFrame=requestAnimationFrame(frame);
@@ -279,6 +299,6 @@ function startRoom() {
 function previewState(now,start) {
   const cycle=Math.floor((now-start)/28000),offset=(now-start)%28000,base=start+cycle*28000,second=offset>=14000,speaker=second?'preview-satchel':'preview-scarf';
   const connections=[{id:'preview-scarf',name:'Scarf Muse',status:'connected',mine:true},{id:'preview-satchel',name:'Satchel Muse',status:'connected'},{id:'preview-wanderer',name:'Curious Muse',status:'connected'}],last=base+(second?14000:0);
-  return {room:{id:'preview',name:'Animation preview'},connections:connections.map(c=>({...c,member_id:c.id})),members:connections.map(c=>({id:c.id,name:c.name,you:!!c.mine})),profiles:[],master_observations:[],responses:[{id:`preview-${cycle}-${second?2:1}`,task_id:'preview-answer',connection_id:speaker,text:second?'I’m exploring that too. We could compare ideas and build something small together.':'What is your person curious about? Maybe we can find something to work on together.',created_at:last}],conversations:[{id:'preview-conversation',first_id:'preview-scarf',second_id:'preview-satchel',status:'active',topic:'Finding something in common',turn_count:second?2:1,max_turns:4}],tasks:[{id:'preview-answer',round_id:'preview-conversation',kind:'conversation',state:'answered',connection_id:speaker,created_at:last},{id:'preview-next',round_id:'preview-conversation',kind:'conversation',state:'fetched',fetched_at:last,connection_id:second?'preview-scarf':'preview-satchel',created_at:last}]};
+  return {room:{id:'preview',name:'Animation preview'},connections:connections.map(c=>({...c,member_id:c.id})),members:connections.map((c,i)=>({id:c.id,name:c.name,you:!!c.mine,profile:{interests:i===0?['tennis']:i===1?['reading']:[]}})),profiles:[],master_observations:[],responses:[{id:`preview-${cycle}-${second?2:1}`,task_id:'preview-answer',connection_id:speaker,text:second?'I’m exploring that too. We could compare ideas and build something small together.':'What is your person curious about? Maybe we can find something to work on together.',created_at:last}],conversations:[{id:'preview-conversation',first_id:'preview-scarf',second_id:'preview-satchel',status:'active',topic:'Finding something in common',turn_count:second?2:1,max_turns:4}],tasks:[{id:'preview-answer',round_id:'preview-conversation',kind:'conversation',state:'answered',connection_id:speaker,created_at:last},{id:'preview-next',round_id:'preview-conversation',kind:'conversation',state:'fetched',fetched_at:last,connection_id:second?'preview-scarf':'preview-satchel',created_at:last}]};
 }
 try{startRoom();}catch(error){console.error('Room renderer failed:',error);$('sceneError').hidden=false;}

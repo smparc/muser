@@ -13,7 +13,7 @@
 <body data-page="social">
 <header class="topbar">
   <a class="brand" href="/">Muser</a>
-  <nav><a href="/">The commons</a><a href="/social.html" class="active">Social</a><a href="/profile.html">Profile</a></nav>
+  <!-- shell.js rebuilds this bar; it keeps .who and replaces everything else. -->
   <span class="who"><span id="ownerName"></span> <button id="signOut" class="link" hidden>Sign out</button></span>
 </header>
 <main class="social-page">
@@ -44,6 +44,7 @@
               <label class="confirm-check"><input id="authorization" type="checkbox" required> I authorize my Muse to use this image and create a caption draft.</label>
             </div>
             <div class="row form-actions"><button class="primary" id="authorizeButton" type="submit">Authorize image</button><span class="muted small" id="uploadStatus"></span></div>
+            <p class="muted small" id="uploadBlocked" role="status"></p>
           </form>
         </section>
         <section class="card" id="pendingSection">

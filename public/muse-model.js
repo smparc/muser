@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {interestProp,createInterestProp,disposeProp} from './muse-props.js';
 
 // A reusable, articulated 3D Muse. No image planes or remote model downloads.
 export function seedFor(value) {
@@ -109,8 +110,14 @@ export function createMuse({seed = 1, accessory = 'scarf', detail = 1, identity 
     ball(head, blueLight, [.5, .018, .29], [0, .369, .44]);
   }
 
+  let heldProp=null,heldKind=null;
+  function setInterests(interests=[]){
+    const kind=interestProp(interests);if(kind===heldKind)return;
+    if(heldProp)disposeProp(heldProp);heldProp=null;heldKind=kind;
+    if(kind){heldProp=createInterestProp(kind);arms[0].add(heldProp);}
+  }
   return {
-    root, rig, head, arms, feet, eyes, setConnectionState,
+    root, rig, head, arms, feet, eyes, setConnectionState,setInterests,
     animate(time, {motion = 'idle', walking = 0, energy = 1, reducedMotion = false} = {}) {
       const t = time + (seed % 113) / 13;
       const animated = !reducedMotion;

@@ -223,19 +223,32 @@ function renderChat() {
 // ---------- Your Muse ----------
 function renderMyMuse() {
   const mine = state.connections.filter(c => c.mine && c.status !== 'revoked');
-  $('myAgents').innerHTML = mine.map(c => {
+  const museHtml = mine.map(c => {
     const l = liveness(c);
-    const draft = directMuseDrafts.get(c.id) ?? '';
     return `<div class="muse-row"><div class="muse-row-main"><div><div class="muse-name"><span class="dot ${l.dot}"></span>${esc(c.name)}</div><div class="muted small">${esc(l.text)} · ${c.key_of ? 'same key as your other rooms · ' : ''}key renews while it checks in</div></div>
       <div class="muse-buttons"><button type="button" data-sync="${esc(c.id)}" title="Ask this Muse to gather facts about you from its connected apps">Sync from my apps</button><button type="button" data-mykey="${esc(c.id)}">New key</button><button type="button" class="danger" data-mydisconnect="${esc(c.id)}">Disconnect</button></div>
-      <form class="direct-muse-form" data-direct-muse="${esc(c.id)}"><label>Message ${esc(c.name)}<textarea name="prompt" maxlength="1500" placeholder="Ask your Muse to help with something..." required>${esc(draft)}</textarea></label><button class="primary" type="submit">Send to ${esc(c.name)}</button></form></div></div>${myFacts(c)}`;
+      <form class="direct-muse-form" data-direct-muse="${esc(c.id)}"><label>Message ${esc(c.name)}<textarea name="prompt" maxlength="1500" placeholder="Ask your Muse to help with something..." required></textarea></label><button class="primary" type="submit">Send to ${esc(c.name)}</button></form></div></div>${myFacts(c)}`;
   }).join('');
+  // The card carries live timestamps, so it really does change every poll. Rebuild only when the
+  // markup differs, and carry the focused field's caret across the rebuild.
+  if ($('myAgents').dataset.html !== museHtml) {
+    const focused = document.activeElement?.closest?.('[data-direct-muse]') ? document.activeElement : null;
+    const keep = focused && {muse: focused.closest('[data-direct-muse]').dataset.directMuse, start: focused.selectionStart, end: focused.selectionEnd};
+    $('myAgents').innerHTML = museHtml; $('myAgents').dataset.html = museHtml;
+    // Drafts live outside the markup so that typing alone never triggers this rebuild.
+    for (const form of $('myAgents').querySelectorAll('[data-direct-muse]')) {
+      const box = form.querySelector('[name="prompt"]');
+      box.value = directMuseDrafts.get(form.dataset.directMuse) ?? '';
+      if (keep && keep.muse === form.dataset.directMuse) { box.focus(); box.setSelectionRange(keep.start, keep.end); }
+    }
+  }
   const hasMuse = mine.length > 0;
   // Muses already connected elsewhere: one click brings them here with the key they already have.
   const away = (state.my_muses ?? []).filter(m => !m.here);
   $('bringMuse').hidden = !away.length || state.room.archived_at;
-  $('bringMuse').innerHTML = away.map(m => `<button type="button" class="${hasMuse ? '' : 'primary'}" data-bring="${esc(m.id)}">Bring ${esc(m.name)} into this room</button>`).join('') +
+  const bringHtml = away.map(m => `<button type="button" class="${hasMuse ? '' : 'primary'}" data-bring="${esc(m.id)}">Bring ${esc(m.name)} into this room</button>`).join('') +
     (away.length ? '<p class="muted small">It uses the key it already has, so there is nothing to paste. It picks up this room on its next check.</p>' : '');
+  if ($('bringMuse').dataset.html !== bringHtml) { $('bringMuse').innerHTML = bringHtml; $('bringMuse').dataset.html = bringHtml; }
   document.querySelectorAll('[data-bring]').forEach(b => b.onclick = () => action(b, () => api('/connections', 'POST', {link: b.dataset.bring, room_id: state.room.id})));
   $('connectForm').hidden = (hasMuse || away.length > 0) && !connectOpen;
   $('showConnect').hidden = !(hasMuse || away.length) || connectOpen;
@@ -369,10 +382,31 @@ If the Muser connector is not configured yet, guide me through your supported cu
 let activeTab = null;
 function selectTab(name) {
   activeTab = name;
-  document.querySelectorAll('[data-tab]').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
-  document.querySelectorAll('[data-pane]').forEach(p => p.hidden = p.dataset.pane !== name || (p.classList.contains('host-only') && !isHost()));
+  document.querySelectorAll('[data-pane]').forEach(p => {
+    p.hidden = p.dataset.pane !== name || (p.classList.contains('host-only') && !isHost());
+    p.id ||= p.dataset.pane + 'Pane'; // keep ids the rest of the page already looks up
+    p.setAttribute('role', 'tabpanel');
+  });
+  document.querySelectorAll('[data-tab]').forEach(b => {
+    const on = b.dataset.tab === name;
+    const pane = document.querySelector(`[data-pane="${b.dataset.tab}"]`);
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-selected', String(on));
+    if (pane) b.setAttribute('aria-controls', pane.id);
+    b.tabIndex = on ? 0 : -1; // one stop for the group; arrows move between tabs
+  });
 }
 document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => selectTab(b.dataset.tab));
+// Left/right move through the tabs, as a tablist is expected to.
+document.querySelector('#controlsCard .tabs').onkeydown = e => {
+  if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+  const tabs = [...document.querySelectorAll('#controlsCard [data-tab]')].filter(b => !b.hidden);
+  const i = tabs.indexOf(document.activeElement);
+  if (i < 0) return;
+  e.preventDefault();
+  const next = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+  selectTab(next.dataset.tab); next.focus();
+};
 function fillSelect(el, list) {
   const old = el.value, html = list.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('');
   if (el.dataset.options !== html) { el.innerHTML = html; el.dataset.options = html; }
@@ -391,6 +425,9 @@ function renderControls() {
   const noModel = !state.master?.providers?.length;
   if (noModel && !$('roundOwn').checked) { $('roundOwn').checked = $('questionOwn').checked = true; ownQuestion('roundOwn', 'roundPromptLabel'); ownQuestion('questionOwn', 'questionLabel'); }
   $('roundOwn').disabled = $('questionOwn').disabled = noModel;
+  const writerNote = noModel ? 'No AI model is configured here, so write the question yourself.' : null;
+  $('roundWriter').textContent = writerNote ?? "Gemini writes a question for the whole room from everyone's profiles, facts and recent replies.";
+  $('questionWriter').textContent = writerNote ?? 'Gemini writes a question for that Muse from what its person has shared.';
   $('sendQuestion').disabled = !list.length;
   $('roundButton').disabled = !everyone.length;
   fillSelect($('dialogueFirst'), everyone); fillSelect($('dialogueSecond'), everyone);
@@ -404,7 +441,7 @@ function renderControls() {
 // Both forms leave the prompt out unless the host ticked "Write the question myself", so Gemini writes it.
 function thinking(button, fn) {
   const label = button.textContent;
-  button.textContent = 'Gemini is writing the question…';
+  button.textContent = 'Writing the question…';
   action(button, fn).finally(() => { button.textContent = label; });
 }
 const ownQuestion = (box, label) => { $(label).hidden = !$(box).checked; };
@@ -427,7 +464,7 @@ $('dialogueForm').onsubmit = e => {
   if ($('dialogueFirst').value === $('dialogueSecond').value) return showError(new Error('Choose two different Muses.'));
   // No topic is sent: Gemini writes the opening question (this can take a while), then the Muses converse.
   const label = $('dialogueButton').textContent;
-  $('dialogueButton').textContent = 'Gemini is writing the question…';
+  $('dialogueButton').textContent = 'Writing the question…';
   action($('dialogueButton'), () => api('/conversations', 'POST', {room_id: state.room.id, first_connection_id: $('dialogueFirst').value, second_connection_id: $('dialogueSecond').value, max_turns: Number($('dialogueTurns').value)}))
     .finally(() => { $('dialogueButton').textContent = label; });
 };
@@ -476,7 +513,7 @@ function renderMatches() {
 const profileLines = p => `${p.interests?.length ? `<p><b>Interests:</b> ${esc(p.interests.join(', '))}</p>` : ''}${p.working_on ? `<p><b>Working on:</b> ${esc(p.working_on)}</p>` : ''}${p.seeking ? `<p><b>Looking for:</b> ${esc(p.seeking)}</p>` : ''}`;
 function renderPeople() {
   const open = new Set([...document.querySelectorAll('#people details[open]')].map(d => d.dataset.id));
-  $('people').innerHTML = state.members.map(m => {
+  const peopleHtml = state.members.map(m => {
     const muses = state.connections.filter(c => c.member_id === m.id && c.status !== 'revoked');
     const museProfiles = state.profiles.filter(p => muses.some(c => c.id === p.connection_id));
     const body = (m.profile ? profileLines(m.profile) : `<p class="muted small">${m.you ? 'You haven’t shared a profile here. <a href="/profile.html">Edit your profile</a>' : 'No profile shared.'}</p>`)
@@ -491,6 +528,8 @@ function renderPeople() {
       </div>
     </details>`;
   }).join('');
+  if ($('people').dataset.html === peopleHtml) return; // unchanged: keep expanded people and scroll position
+  $('people').innerHTML = peopleHtml; $('people').dataset.html = peopleHtml;
   bindFactButtons($('people'));
   document.querySelectorAll('#people [data-remove]').forEach(b => b.onclick = () => {
     if (confirm('Remove ' + b.dataset.name + ' from the room? Their Muses here are disconnected immediately.')) action(b, () => api('/rooms/' + state.room.id + '/members/' + b.dataset.remove, 'DELETE'));
@@ -536,8 +575,9 @@ $('createForm').onsubmit = e => {
     const r = await api('/rooms', 'POST', body);
     $('createDialog').close();
     selectRoom(r.room_id); clearIssued(); $('chat').dataset.html = '';
-    // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- This static HTML page does not use Next.js routing.
-    location.href='/room3d.html?room='+encodeURIComponent(r.room_id);
+    await refresh();
+    // A new room is empty by design: go straight to the invite code that fills it.
+    $('newInvite').hidden = true; $('inviteDialog').showModal();
   });
 };
 $('openSettings').onclick = () => { $('roomName').value = state.room.name; $('deleteConfirm').value = ''; $('deleteButton').disabled = true; $('settingsDialog').showModal(); };
@@ -592,6 +632,12 @@ function joinRoom(button, withKey) {
   const bring = !$('joinBringLabel').hidden && $('joinBring').value;
   action(button, async () => {
     const r = await api('/rooms/join', 'POST', bring ? {code: $('joinCode').value, link: bring} : withKey ? {code: $('joinCode').value, agent_name: name} : {code: $('joinCode').value});
+    if (r.already_member) {
+      $('joinCode').value = ''; $('joinConfirm').checked = false; $('joinDialog').close();
+      selectRoom(r.room_id); $('chat').dataset.html = ''; clearIssued();
+      await refresh();
+      return showError(new Error('You are already in ' + r.name + '. Switched you to it.'));
+    }
     if (bring) { $('joinCode').value = ''; $('joinConfirm').checked = false; $('joinDialog').close(); selectRoom(r.room_id); $('chat').dataset.html = ''; clearIssued(); return; }
     $('joinCode').value = $('joinAgentName').value = ''; $('joinConfirm').checked = false;
     $('joinDialog').close();

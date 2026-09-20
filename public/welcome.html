@@ -78,9 +78,10 @@
       <label>Muse name<input id="museName" maxlength="60" placeholder="Hayden's Muse" required></label>
       <div class="wizard-actions"><button type="button" id="museLater">Skip for now: go to my room</button><button type="button" id="museKeyButton" class="link">Use an API key instead</button><button type="button" class="primary" id="museQrButton">Show QR code</button><button hidden id="museButton">Get API key</button></div>
       <p class="muted small">You can connect a Muse any time from your room.</p>
+      <p class="muted small">Someone sent you an invite code? <a href="/connect.html#join">Join their room</a> — you can do it before or after connecting a Muse.</p>
     </form>
     <div id="museQr" hidden></div>
-    <div class="wizard-actions" id="museQrActions" hidden><button type="button" id="museQrKey" class="link">Use an API key instead</button><a href="/" class="button primary">Go to my room</a></div>
+    <div class="wizard-actions" id="museQrActions" hidden><button type="button" id="museQrKey" class="link">Use an API key instead</button><a href="/connect.html#join" class="link">Have an invite code?</a><a href="/" class="button primary">Go to my room</a></div>
     <div id="museIssued" hidden>
       <h3>1. Save the key in your Muse's connector</h3>
       <p class="muted small">Shown only now. Paste it into the custom connector's secret field.</p>
@@ -90,7 +91,7 @@
       <h3>2. Send your Muse the setup message</h3>
       <p class="muted small warn">This message contains the key and your authorization. Send it only in your private chat with your Muse.</p>
       <textarea id="setupMessage" readonly class="setup-message"></textarea>
-      <div class="wizard-actions"><button type="button" id="copySetup">Copy setup message</button><a href="/" class="button primary">Go to my room</a></div>
+      <div class="wizard-actions"><button type="button" id="copySetup">Copy setup message</button><a href="/connect.html#join" class="link">Have an invite code?</a><a href="/" class="button primary">Go to my room</a></div>
     </div>
   </section>
 </main>
