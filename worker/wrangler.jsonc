@@ -16,7 +16,11 @@
   // ELASTIC_URL is an endpoint, not a credential; ELASTIC_API_KEY and ELEVENLABS_API_KEY are set with `wrangler secret put`.
   "vars": {
     "PUBLIC_ORIGIN": "https://muser.work",
-    "ELASTIC_URL": "https://my-vectordb-project-ac8803.es.us-east4.gcp.elastic.cloud:443"
+    "ELASTIC_URL": "https://my-vectordb-project-ac8803.es.us-east4.gcp.elastic.cloud:443",
+    // The free tier caps requests per day per model. gemini-3.6-flash and gemini-3.5-flash are spent on this key,
+    // so the master runs on flash-lite, which has its own daily allowance. Drop these two back once billing is on.
+    "GEMINI_MODEL": "gemini-3.5-flash-lite",
+    "GEMINI_FALLBACK_MODEL": "gemini-3.5-flash"
   },
   "assets": {
     "directory": "../public",
