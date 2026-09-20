@@ -5,7 +5,7 @@ import {speakReply,voiceCatalog,setMuseVoice} from '../lib/room-audio.mjs';
 import {id,secret} from '../lib/http.mjs';
 import {sqliteD1,onboard} from './helpers.mjs';
 
-const HAYDEN='whtn8K2jpyL49m4VzNGr';
+const HAYDEN='whtn8K2jpyL49m4VzNGr',SECOND='xA0PxM549qyrDiMUCt5w';
 const CATALOG={voices:[
  {voice_id:'21m00Tcm4TlvDq8ikWAM',name:'Rachel',category:'premade'},
  {voice_id:'AZnzlk1XvdvUeBnXmlld',name:'Domi',category:'premade'},
@@ -25,6 +25,18 @@ test('the menu offers the account\'s own cloned voices, with names',async()=>{
 test('a voice the provider does not offer is refused',async()=>{
  await assert.rejects(()=>setMuseVoice({},'owner','muse','no_such_voice_here',envFor('k-reject'),catalogFetcher),
   e=>e.code==='unknown_voice'&&e.status===422);
+});
+
+test('a pinned voice is offered even when the account catalog omits it',async()=>{
+ // SECOND is absent from CATALOG: it stands for a voice shared with the account rather than owned by it.
+ const list=await voiceCatalog(envFor('k-pinned'),catalogFetcher);
+ assert.ok(list.some(v=>v.id===SECOND),'a pinned voice must be selectable');
+ assert.ok(list.some(v=>v.id==='21m00Tcm4TlvDq8ikWAM'),'pinning must not hide the account\'s own voices');
+ // Pinned voices are opt-in only: they never enter the automatic assignment pool.
+ assert.equal(list.find(v=>v.id===SECOND).category,'custom');
+ const h=sqliteD1();
+ assert.equal(await setMuseVoice(h.db,'pin-owner','pin-muse',SECOND,envFor('k-pinned'),catalogFetcher),SECOND);
+ h.cleanup();
 });
 
 test('an operator-configured list stays authoritative',async()=>{

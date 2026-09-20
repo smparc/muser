@@ -83,7 +83,7 @@ $('profileForm').onsubmit = async e => {
 (async () => {
   await initHeader();
   try {
-    await load(); await loadSources();
+    await load(); await loadSources(); await loadVoices();
     $('loading').hidden = true; $('profileWorkspace').hidden = false;
   } catch (err) {
     $('loading').hidden = true;
@@ -102,4 +102,35 @@ function showWrittenBy(check) {
   el.textContent = ai ? `GPTZero reads this profile as AI-written (${check.ai_probability}% AI). Everyone in your rooms sees that — rewrite it in your own words if that is not what you meant.`
     : mixed ? 'GPTZero reads this profile as partly AI-written. Everyone in your rooms sees that.'
     : 'GPTZero reads this profile as your own words.';
+}
+
+// ---------- Your Muse's voice ----------
+// A voice belongs to a Muse, not to a room: the choice is keyed to the Muse itself and follows it everywhere,
+// so it lives here with the person's other settings rather than in any one room.
+async function loadVoices() {
+  let catalog;
+  try { catalog = await api('/voices'); } catch { return; }
+  if (!catalog.available || !catalog.muses.length) {
+    // No key on the server, or no Muse connected yet: say nothing rather than showing an empty menu.
+    $('voiceCard').hidden = true;
+    return;
+  }
+  $('voiceCard').hidden = false;
+  $('voiceList').innerHTML = catalog.muses.map(m => {
+    const known = !m.voice_id || catalog.voices.some(v => v.id === m.voice_id);
+    const options = ['<option value="">Chosen for me</option>'].concat(catalog.voices.map(v =>
+      `<option value="${esc(v.id)}"${v.id === m.voice_id ? ' selected' : ''}>${esc(v.name)}${v.category && v.category !== 'premade' ? ' · ' + esc(v.category) : ''}</option>`));
+    return `<label class="voice-row"><span>${esc(m.name)}</span><select data-voice="${esc(m.id)}">${options.join('')}</select></label>`
+      + (known ? '' : `<p class="muted small">${esc(m.name)} is set to a voice this server no longer offers. Pick another.</p>`);
+  }).join('');
+  document.querySelectorAll('[data-voice]').forEach(sel => sel.onchange = async () => {
+    const previous = catalog.muses.find(m => m.id === sel.dataset.voice)?.voice_id ?? '';
+    sel.disabled = true; clearError(); $('voiceStatus').textContent = 'Saving…';
+    try {
+      await api('/muses/' + sel.dataset.voice + '/voice', 'PUT', {voice_id: sel.value || null});
+      $('voiceStatus').textContent = sel.value ? 'Saved. Your Muse speaks in this voice from its next reply.' : 'Saved. Each room will choose a voice for this Muse.';
+      await loadVoices();
+    } catch (err) { sel.value = previous; $('voiceStatus').textContent = ''; showError(err); }
+    finally { sel.disabled = false; }
+  });
 }
